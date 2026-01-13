@@ -15,7 +15,7 @@ An AI-powered phone receptionist that sells AI receptionist services by demonstr
 
 - **Node.js + Express** - Web server
 - **Twilio Voice API** - Phone call handling & speech recognition
-- **OpenAI GPT-4** or **Anthropic Claude** - AI conversation
+- **OpenAI GPT-4**, **Anthropic Claude**, or **Google Gemini** - AI conversation
 - **Twilio TTS** - Text-to-speech (Polly.Joanna voice)
 
 ## 📋 Prerequisites
@@ -26,6 +26,7 @@ An AI-powered phone receptionist that sells AI receptionist services by demonstr
    - Auth Token
 
 2. **AI API Key** (choose one):
+   - **Google Gemini** API key - **RECOMMENDED** ([Get it here](https://aistudio.google.com/))
    - OpenAI API key (GPT-4)
    - Anthropic API key (Claude)
 
@@ -58,11 +59,17 @@ TWILIO_AUTH_TOKEN=your_auth_token
 TWILIO_PHONE_NUMBER=+1234567890
 
 # AI Configuration (choose one)
+GOOGLE_API_KEY=AIzaSyxxxxxxxxxxxxxxxxxxxxxxxxx  # RECOMMENDED - Fast & cheap!
+# OR
 OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxx
 # OR
 ANTHROPIC_API_KEY=sk-ant-xxxxxxxxxxxxxxxxxxxxx
 
-AI_PROVIDER=openai  # or 'anthropic'
+# Choose provider: 'gemini', 'openai', or 'anthropic'
+AI_PROVIDER=gemini
+
+# Optional: Specify Gemini model (defaults to gemini-1.5-flash)
+GEMINI_MODEL=gemini-1.5-flash  # or gemini-1.5-pro for better quality
 
 # Server Configuration
 PORT=3000
@@ -195,10 +202,22 @@ npm start
 
 ## 💰 Cost Considerations
 
+### AI Provider Costs (per 1K tokens)
+- **Google Gemini 1.5 Flash**: ~$0.00015 ⚡ **CHEAPEST & FASTEST**
+- **Google Gemini 1.5 Pro**: ~$0.00125
+- **Anthropic Claude**: ~$0.015
+- **OpenAI GPT-4**: ~$0.03
+
+### Complete Cost Per Minute
 - **Twilio**: ~$0.013/min for voice calls
-- **OpenAI GPT-4**: ~$0.03 per 1K tokens
-- **Anthropic Claude**: ~$0.015 per 1K tokens
-- **Estimated**: $0.05-0.10 per minute of conversation
+- **Gemini Flash**: ~$0.015-0.025/min total ✅ **RECOMMENDED**
+- **Claude/GPT-4**: ~$0.05-0.10/min total
+
+**Why Gemini Flash?**
+- 200x cheaper than GPT-4
+- Faster response times = more natural conversations
+- Perfect quality for sales calls
+- Can handle 10x more calls on the same budget
 
 ## 🚀 Deployment Options
 
@@ -206,7 +225,8 @@ npm start
 ```bash
 heroku create your-app-name
 heroku config:set TWILIO_ACCOUNT_SID=ACxxx...
-heroku config:set OPENAI_API_KEY=sk-xxx...
+heroku config:set GOOGLE_API_KEY=AIzaSyxxx...
+heroku config:set AI_PROVIDER=gemini
 git push heroku main
 ```
 

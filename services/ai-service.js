@@ -1,8 +1,9 @@
 const OpenAI = require('openai');
 const Anthropic = require('@anthropic-ai/sdk');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 /**
- * AI Service - Handles AI conversation using OpenAI or Anthropic
+ * AI Service - Handles AI conversation using OpenAI, Anthropic, or Google Gemini
  */
 class AIService {
   constructor() {
@@ -15,6 +16,11 @@ class AIService {
     } else if (this.provider === 'anthropic') {
       this.anthropic = new Anthropic({
         apiKey: process.env.ANTHROPIC_API_KEY
+      });
+    } else if (this.provider === 'gemini') {
+      this.gemini = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
+      this.geminiModel = this.gemini.getGenerativeModel({
+        model: process.env.GEMINI_MODEL || 'gemini-1.5-flash'
       });
     }
 
@@ -68,6 +74,8 @@ Keep responses under 3 sentences when possible for phone conversations. Be natur
         return await this.getOpenAIResponse(conversationHistory, userMessage);
       } else if (this.provider === 'anthropic') {
         return await this.getAnthropicResponse(conversationHistory, userMessage);
+      } else if (this.provider === 'gemini') {
+        return await this.getGeminiResponse(conversationHistory, userMessage);
       }
     } catch (error) {
       console.error('Error getting AI response:', error);
@@ -113,6 +121,31 @@ Keep responses under 3 sentences when possible for phone conversations. Be natur
     });
 
     return response.content[0].text;
+  }
+
+  /**
+   * Get response from Google Gemini
+   */
+  async getGeminiResponse(conversationHistory, userMessage) {
+    // Build conversation history for Gemini
+    const history = conversationHistory.slice(0, -1).map(msg => ({
+      role: msg.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: msg.content }]
+    }));
+
+    // Start chat with history
+    const chat = this.geminiModel.startChat({
+      history: history,
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 150,
+      },
+      systemInstruction: this.getSystemPrompt()
+    });
+
+    const result = await chat.sendMessage(userMessage);
+    const response = await result.response;
+    return response.text();
   }
 }
 
