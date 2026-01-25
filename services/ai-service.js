@@ -1,27 +1,39 @@
-const OpenAI = require('openai');
-const Anthropic = require('@anthropic-ai/sdk');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
-
 /**
  * AI Service - Handles AI conversation using OpenAI, Anthropic, or Google Gemini
+ * Only loads the SDK for the configured provider to avoid missing API key errors
  */
 class AIService {
   constructor() {
-    this.provider = process.env.AI_PROVIDER || 'openai';
+    this.provider = process.env.AI_PROVIDER || 'gemini';
 
+    // Only initialize the selected provider
     if (this.provider === 'openai') {
+      if (!process.env.OPENAI_API_KEY) {
+        throw new Error('OPENAI_API_KEY is required when AI_PROVIDER=openai');
+      }
+      const OpenAI = require('openai');
       this.openai = new OpenAI({
         apiKey: process.env.OPENAI_API_KEY
       });
     } else if (this.provider === 'anthropic') {
+      if (!process.env.ANTHROPIC_API_KEY) {
+        throw new Error('ANTHROPIC_API_KEY is required when AI_PROVIDER=anthropic');
+      }
+      const Anthropic = require('@anthropic-ai/sdk');
       this.anthropic = new Anthropic({
         apiKey: process.env.ANTHROPIC_API_KEY
       });
     } else if (this.provider === 'gemini') {
+      if (!process.env.GOOGLE_API_KEY) {
+        throw new Error('GOOGLE_API_KEY is required when AI_PROVIDER=gemini');
+      }
+      const { GoogleGenerativeAI } = require('@google/generative-ai');
       this.gemini = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
       this.geminiModel = this.gemini.getGenerativeModel({
         model: process.env.GEMINI_MODEL || 'gemini-1.5-flash'
       });
+    } else {
+      throw new Error(`Unknown AI_PROVIDER: ${this.provider}. Use 'openai', 'anthropic', or 'gemini'`);
     }
 
     console.log(`✅ AI Service initialized with provider: ${this.provider}`);
@@ -96,7 +108,7 @@ Keep responses under 3 sentences when possible for phone conversations. Be natur
       model: 'gpt-4-turbo-preview',
       messages: messages,
       temperature: 0.7,
-      max_tokens: 150 // Keep responses concise for phone calls
+      max_tokens: 150
     });
 
     return response.choices[0].message.content;
@@ -106,7 +118,6 @@ Keep responses under 3 sentences when possible for phone conversations. Be natur
    * Get response from Anthropic Claude
    */
   async getAnthropicResponse(conversationHistory, userMessage) {
-    // Convert conversation history to Anthropic format
     const messages = conversationHistory.map(msg => ({
       role: msg.role === 'assistant' ? 'assistant' : 'user',
       content: msg.content
@@ -127,13 +138,11 @@ Keep responses under 3 sentences when possible for phone conversations. Be natur
    * Get response from Google Gemini
    */
   async getGeminiResponse(conversationHistory, userMessage) {
-    // Build conversation history for Gemini
     const history = conversationHistory.slice(0, -1).map(msg => ({
       role: msg.role === 'assistant' ? 'model' : 'user',
       parts: [{ text: msg.content }]
     }));
 
-    // Start chat with history
     const chat = this.geminiModel.startChat({
       history: history,
       generationConfig: {
