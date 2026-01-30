@@ -4,7 +4,10 @@
  */
 class AIService {
   constructor() {
-    this.provider = process.env.AI_PROVIDER || 'gemini';
+    // Force OpenAI as the provider
+    this.provider = 'openai'; 
+    
+    // this.provider = process.env.AI_PROVIDER || 'gemini';
 
     // Only initialize the selected provider
     if (this.provider === 'openai') {
