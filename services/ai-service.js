@@ -122,10 +122,10 @@ IMPORTANT RULES:
     ];
 
     const response = await this.openai.chat.completions.create({
-      model: 'gpt-5.2',
+      model: 'gpt-4o-mini',
       messages: messages,
       temperature: 0.7,
-      max_completion_tokens: 150
+      max_tokens: 150
     });
 
     return response.choices[0].message.content;
