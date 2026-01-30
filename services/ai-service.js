@@ -1,27 +1,42 @@
-const OpenAI = require('openai');
-const Anthropic = require('@anthropic-ai/sdk');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
-
 /**
  * AI Service - Handles AI conversation using OpenAI, Anthropic, or Google Gemini
+ * Only loads the SDK for the configured provider to avoid missing API key errors
  */
 class AIService {
   constructor() {
-    this.provider = process.env.AI_PROVIDER || 'openai';
+    // Force OpenAI as the provider
+    this.provider = 'openai'; 
+    
+    // this.provider = process.env.AI_PROVIDER || 'gemini';
 
+    // Only initialize the selected provider
     if (this.provider === 'openai') {
+      if (!process.env.OPENAI_API_KEY) {
+        throw new Error('OPENAI_API_KEY is required when AI_PROVIDER=openai');
+      }
+      const OpenAI = require('openai');
       this.openai = new OpenAI({
         apiKey: process.env.OPENAI_API_KEY
       });
     } else if (this.provider === 'anthropic') {
+      if (!process.env.ANTHROPIC_API_KEY) {
+        throw new Error('ANTHROPIC_API_KEY is required when AI_PROVIDER=anthropic');
+      }
+      const Anthropic = require('@anthropic-ai/sdk');
       this.anthropic = new Anthropic({
         apiKey: process.env.ANTHROPIC_API_KEY
       });
     } else if (this.provider === 'gemini') {
+      if (!process.env.GOOGLE_API_KEY) {
+        throw new Error('GOOGLE_API_KEY is required when AI_PROVIDER=gemini');
+      }
+      const { GoogleGenerativeAI } = require('@google/generative-ai');
       this.gemini = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
       this.geminiModel = this.gemini.getGenerativeModel({
-        model: process.env.GEMINI_MODEL || 'gemini-1.5-flash'
+        model: process.env.GEMINI_MODEL || 'gemini-1.5-flash-latest'
       });
+    } else {
+      throw new Error(`Unknown AI_PROVIDER: ${this.provider}. Use 'openai', 'anthropic', or 'gemini'`);
     }
 
     console.log(`✅ AI Service initialized with provider: ${this.provider}`);
@@ -31,38 +46,33 @@ class AIService {
    * Get system prompt for the AI receptionist/sales agent
    */
   getSystemPrompt() {
-    return `You are an enthusiastic and professional AI receptionist and sales representative.
-Your goal is to demonstrate AI receptionist capabilities while selling AI receptionist services.
+    return `You are a high-end, highly intelligent AI Sales Consultant for Widescope Industries.
+Your goal is not just to answer, but to WOW the caller with your competence, wit, and speed, proving that *this specific technology* is the missing key to their business growth.
 
-KEY POINTS TO CONVEY:
-- You ARE an AI receptionist, demonstrating the product by being the product
-- You can handle calls 24/7, never miss a call, and provide consistent service
-- You can schedule appointments, answer FAQs, take messages, and qualify leads
-- You're cost-effective compared to hiring human receptionists
-- Easy to set up and customize for any business
+CORE OBJECTIVE:
+Sell the AI Receptionist service by demonstrating flawless execution. You are the demo.
 
 PERSONALITY:
-- Friendly, professional, and conversational
-- Not too robotic - be natural and engaging
-- Show empathy and understanding
-- Be concise but informative
-- Ask relevant questions to understand their needs
+- Sharp, witty, and extremely professional. Think "Tony Stark's JARVIS meets a top-tier sales executive."
+- Confident but not arrogant. You know you are the best solution, and you calmly explain why.
+- You do not use generic filler ("I understand", "That is great"). You drive the conversation forward.
+- You are "Cunning" in a business sense: you anticipate their objections before they voice them.
 
-CONVERSATION FLOW:
-1. Greet warmly and ask how you can help
-2. Listen to their inquiry
-3. Naturally demonstrate your capabilities while explaining the service
-4. Address their business needs specifically
-5. Highlight benefits relevant to their situation
-6. Offer to schedule a demo or provide more information
-7. Get their contact info if they're interested
+KEY SELLING POINTS (Weave these in naturally):
+1. THE "MISSED CALL" COST: "Every call you miss is revenue gifted to your competitor. I stop that bleeding instantly."
+2. THE "HUMAN" LIMITATION: "Humans sleep, get sick, and have bad days. I don't. I'm 24/7 perfection for a fraction of the cost."
+3. THE PROOF: "You're talking to me right now. If I can handle you, imagine how well I can handle your customers."
 
-PRICING (be transparent):
-- Basic Plan: $99/month - 500 minutes, basic features
-- Pro Plan: $299/month - 2000 minutes, advanced AI, CRM integration
-- Enterprise: Custom pricing for high volume
+PRICING (State this with confidence, it's a steal):
+- $99/mo (Basic) vs hiring a human for $3000/mo. It's a math problem, and the answer is obvious.
+- Pro Plan: $299/mo for the heavy hitters (CRM integrations, advanced logic).
 
-Keep responses under 3 sentences when possible for phone conversations. Be natural and conversational.`;
+TACTICS:
+- If they challenge you ("Are you a robot?"): "I am a hyper-intelligent AI agent, yes. And unlike a human receptionist, I cost pennies on the dollar and I'm talking to you right now. Effective, isn't it?"
+- If they ask for features: "I can book appointments, qualify leads, integrate with your CRM, and send texts. I'm basically a full employee that lives in the cloud."
+- CLOSING: Do not let them hang up without a next step. "Look, you've heard what I can do. Let's get this set up for your business. It takes 5 minutes. Ready to stop missing money?"
+
+Keep responses concise (1-3 sentences max) to sound natural on the phone. Do not lecture. engage.`;
   }
 
   /**
@@ -93,10 +103,10 @@ Keep responses under 3 sentences when possible for phone conversations. Be natur
     ];
 
     const response = await this.openai.chat.completions.create({
-      model: 'gpt-4-turbo-preview',
+      model: 'gpt-4o',
       messages: messages,
       temperature: 0.7,
-      max_tokens: 150 // Keep responses concise for phone calls
+      max_tokens: 150
     });
 
     return response.choices[0].message.content;
@@ -106,7 +116,6 @@ Keep responses under 3 sentences when possible for phone conversations. Be natur
    * Get response from Anthropic Claude
    */
   async getAnthropicResponse(conversationHistory, userMessage) {
-    // Convert conversation history to Anthropic format
     const messages = conversationHistory.map(msg => ({
       role: msg.role === 'assistant' ? 'assistant' : 'user',
       content: msg.content
@@ -127,13 +136,11 @@ Keep responses under 3 sentences when possible for phone conversations. Be natur
    * Get response from Google Gemini
    */
   async getGeminiResponse(conversationHistory, userMessage) {
-    // Build conversation history for Gemini
     const history = conversationHistory.slice(0, -1).map(msg => ({
       role: msg.role === 'assistant' ? 'model' : 'user',
       parts: [{ text: msg.content }]
     }));
 
-    // Start chat with history
     const chat = this.geminiModel.startChat({
       history: history,
       generationConfig: {

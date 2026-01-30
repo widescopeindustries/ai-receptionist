@@ -49,10 +49,10 @@ app.post('/voice/incoming', async (req, res) => {
   conversations.set(callSid, conversationManager);
 
   // Greet the caller
-  const greeting = "Hello! Thank you for calling. I'm an AI receptionist. How can I help you today?";
+  const greeting = "Widescope Industries. I don't do voicemail, I do business. Who am I speaking with?";
 
   twiml.say({
-    voice: 'Polly.Joanna',
+    voice: 'Polly.Danielle-Neural',
     language: 'en-US'
   }, greeting);
 
@@ -111,14 +111,14 @@ app.post('/voice/process-speech', async (req, res) => {
 
     // Speak the AI response
     twiml.say({
-      voice: 'Polly.Joanna',
+      voice: 'Polly.Danielle-Neural',
       language: 'en-US'
     }, aiResponse);
 
     // Check if conversation should end
     if (conversationManager.shouldEndCall(aiResponse)) {
       twiml.say({
-        voice: 'Polly.Joanna',
+        voice: 'Polly.Danielle-Neural',
         language: 'en-US'
       }, 'Have a great day! Goodbye!');
 
@@ -143,7 +143,7 @@ app.post('/voice/process-speech', async (req, res) => {
     console.error('❌ Error processing speech:', error);
 
     twiml.say({
-      voice: 'Polly.Joanna',
+      voice: 'Polly.Danielle-Neural',
       language: 'en-US'
     }, 'I apologize, I\'m having trouble understanding. Could you please repeat that?');
 
@@ -167,7 +167,7 @@ app.post('/voice/no-input', (req, res) => {
   const twiml = new VoiceResponse();
 
   twiml.say({
-    voice: 'Polly.Joanna',
+    voice: 'Polly.Danielle-Neural',
     language: 'en-US'
   }, 'Are you still there? How can I help you?');
 
@@ -180,7 +180,7 @@ app.post('/voice/no-input', (req, res) => {
   });
 
   twiml.say({
-    voice: 'Polly.Joanna',
+    voice: 'Polly.Danielle-Neural',
     language: 'en-US'
   }, 'If you need assistance, please say something or press any key.');
 
