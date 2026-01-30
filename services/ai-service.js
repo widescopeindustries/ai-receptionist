@@ -103,7 +103,7 @@ Keep responses concise (1-3 sentences max) to sound natural on the phone. Do not
     ];
 
     const response = await this.openai.chat.completions.create({
-      model: 'gpt-4-turbo-preview',
+      model: 'gpt-4o',
       messages: messages,
       temperature: 0.7,
       max_tokens: 150
