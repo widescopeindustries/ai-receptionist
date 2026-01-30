@@ -122,7 +122,7 @@ IMPORTANT RULES:
     ];
 
     const response = await this.openai.chat.completions.create({
-      model: 'gpt-4o',
+      model: 'gpt-5.2',
       messages: messages,
       temperature: 0.7,
       max_tokens: 150
