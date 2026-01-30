@@ -1,721 +1,307 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI Receptionist - Never Miss a Business Call Again</title>
-  <meta name="description" content="24/7 AI-powered phone receptionist that answers calls, qualifies leads, and books appointments. Starting at $99/month.">
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    :root {
-      --primary: #2563eb;
-      --primary-dark: #1d4ed8;
-      --secondary: #10b981;
-      --dark: #1f2937;
-      --gray: #6b7280;
-      --light: #f3f4f6;
-      --white: #ffffff;
-    }
-
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-      line-height: 1.6;
-      color: var(--dark);
-    }
-
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 0 20px;
-    }
-
-    /* Header */
-    header {
-      background: var(--white);
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-      position: fixed;
-      width: 100%;
-      top: 0;
-      z-index: 100;
-    }
-
-    nav {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 15px 0;
-    }
-
-    .logo {
-      font-size: 24px;
-      font-weight: 700;
-      color: var(--primary);
-      text-decoration: none;
-    }
-
-    .nav-links {
-      display: flex;
-      gap: 30px;
-      align-items: center;
-    }
-
-    .nav-links a {
-      color: var(--gray);
-      text-decoration: none;
-      font-weight: 500;
-      transition: color 0.2s;
-    }
-
-    .nav-links a:hover {
-      color: var(--primary);
-    }
-
-    .btn {
-      display: inline-block;
-      padding: 12px 24px;
-      border-radius: 8px;
-      font-weight: 600;
-      text-decoration: none;
-      transition: all 0.2s;
-      cursor: pointer;
-      border: none;
-      font-size: 16px;
-    }
-
-    .btn-primary {
-      background: var(--primary);
-      color: var(--white);
-    }
-
-    .btn-primary:hover {
-      background: var(--primary-dark);
-    }
-
-    .btn-secondary {
-      background: var(--white);
-      color: var(--primary);
-      border: 2px solid var(--primary);
-    }
-
-    .btn-secondary:hover {
-      background: var(--primary);
-      color: var(--white);
-    }
-
-    .btn-large {
-      padding: 16px 32px;
-      font-size: 18px;
-    }
-
-    /* Hero */
-    .hero {
-      padding: 140px 0 80px;
-      background: linear-gradient(135deg, #eff6ff 0%, #ffffff 100%);
-    }
-
-    .hero-content {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 60px;
-      align-items: center;
-    }
-
-    .hero h1 {
-      font-size: 48px;
-      font-weight: 800;
-      line-height: 1.2;
-      margin-bottom: 20px;
-    }
-
-    .hero h1 span {
-      color: var(--primary);
-    }
-
-    .hero p {
-      font-size: 20px;
-      color: var(--gray);
-      margin-bottom: 30px;
-    }
-
-    .hero-cta {
-      display: flex;
-      gap: 15px;
-      align-items: center;
-    }
-
-    .demo-phone {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      background: var(--light);
-      padding: 15px 25px;
-      border-radius: 50px;
-      font-size: 18px;
-      font-weight: 600;
-    }
-
-    .demo-phone span {
-      color: var(--secondary);
-    }
-
-    .hero-image {
-      position: relative;
-    }
-
-    .hero-image img {
-      width: 100%;
-      border-radius: 20px;
-      box-shadow: 0 25px 50px rgba(0,0,0,0.15);
-    }
-
-    /* Features */
-    .features {
-      padding: 100px 0;
-    }
-
-    .section-header {
-      text-align: center;
-      margin-bottom: 60px;
-    }
-
-    .section-header h2 {
-      font-size: 36px;
-      font-weight: 700;
-      margin-bottom: 15px;
-    }
-
-    .section-header p {
-      font-size: 18px;
-      color: var(--gray);
-      max-width: 600px;
-      margin: 0 auto;
-    }
-
-    .features-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 40px;
-    }
-
-    .feature-card {
-      padding: 30px;
-      border-radius: 16px;
-      background: var(--white);
-      border: 1px solid var(--light);
-      transition: all 0.3s;
-    }
-
-    .feature-card:hover {
-      box-shadow: 0 10px 40px rgba(0,0,0,0.1);
-      transform: translateY(-5px);
-    }
-
-    .feature-icon {
-      width: 60px;
-      height: 60px;
-      background: linear-gradient(135deg, var(--primary), var(--secondary));
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 28px;
-      margin-bottom: 20px;
-    }
-
-    .feature-card h3 {
-      font-size: 20px;
-      margin-bottom: 10px;
-    }
-
-    .feature-card p {
-      color: var(--gray);
-    }
-
-    /* Pricing */
-    .pricing {
-      padding: 100px 0;
-      background: var(--light);
-    }
-
-    .pricing-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 30px;
-    }
-
-    .pricing-card {
-      background: var(--white);
-      border-radius: 20px;
-      padding: 40px;
-      position: relative;
-      border: 2px solid transparent;
-      transition: all 0.3s;
-    }
-
-    .pricing-card:hover {
-      border-color: var(--primary);
-    }
-
-    .pricing-card.popular {
-      border-color: var(--primary);
-      transform: scale(1.05);
-    }
-
-    .popular-badge {
-      position: absolute;
-      top: -15px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: var(--primary);
-      color: var(--white);
-      padding: 8px 20px;
-      border-radius: 20px;
-      font-size: 14px;
-      font-weight: 600;
-    }
-
-    .pricing-card h3 {
-      font-size: 24px;
-      margin-bottom: 10px;
-    }
-
-    .pricing-card .price {
-      font-size: 48px;
-      font-weight: 800;
-      margin-bottom: 5px;
-    }
-
-    .pricing-card .price span {
-      font-size: 18px;
-      font-weight: 400;
-      color: var(--gray);
-    }
-
-    .pricing-card .price-note {
-      color: var(--gray);
-      margin-bottom: 30px;
-    }
-
-    .pricing-features {
-      list-style: none;
-      margin-bottom: 30px;
-    }
-
-    .pricing-features li {
-      padding: 10px 0;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .pricing-features li::before {
-      content: "✓";
-      color: var(--secondary);
-      font-weight: 700;
-    }
-
-    .pricing-card .btn {
-      width: 100%;
-      text-align: center;
-    }
-
-    /* How it works */
-    .how-it-works {
-      padding: 100px 0;
-    }
-
-    .steps {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 30px;
-    }
-
-    .step {
-      text-align: center;
-    }
-
-    .step-number {
-      width: 60px;
-      height: 60px;
-      background: var(--primary);
-      color: var(--white);
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 24px;
-      font-weight: 700;
-      margin: 0 auto 20px;
-    }
-
-    .step h3 {
-      font-size: 18px;
-      margin-bottom: 10px;
-    }
-
-    .step p {
-      color: var(--gray);
-      font-size: 14px;
-    }
-
-    /* CTA */
-    .cta {
-      padding: 100px 0;
-      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
-      color: var(--white);
-      text-align: center;
-    }
-
-    .cta h2 {
-      font-size: 42px;
-      margin-bottom: 20px;
-    }
-
-    .cta p {
-      font-size: 20px;
-      opacity: 0.9;
-      margin-bottom: 30px;
-    }
-
-    .cta .btn-secondary {
-      background: var(--white);
-      color: var(--primary);
-      border-color: var(--white);
-    }
-
-    .cta .btn-secondary:hover {
-      background: transparent;
-      color: var(--white);
-    }
-
-    /* Footer */
-    footer {
-      background: var(--dark);
-      color: var(--white);
-      padding: 60px 0 30px;
-    }
-
-    .footer-content {
-      display: grid;
-      grid-template-columns: 2fr 1fr 1fr 1fr;
-      gap: 40px;
-      margin-bottom: 40px;
-    }
-
-    .footer-brand p {
-      color: #9ca3af;
-      margin-top: 15px;
-    }
-
-    footer h4 {
-      margin-bottom: 20px;
-    }
-
-    footer ul {
-      list-style: none;
-    }
-
-    footer ul li {
-      margin-bottom: 10px;
-    }
-
-    footer ul a {
-      color: #9ca3af;
-      text-decoration: none;
-      transition: color 0.2s;
-    }
-
-    footer ul a:hover {
-      color: var(--white);
-    }
-
-    .footer-bottom {
-      border-top: 1px solid #374151;
-      padding-top: 30px;
-      text-align: center;
-      color: #9ca3af;
-    }
-
-    /* Responsive */
-    @media (max-width: 968px) {
-      .hero-content {
-        grid-template-columns: 1fr;
-        text-align: center;
-      }
-
-      .hero h1 {
-        font-size: 36px;
-      }
-
-      .hero-cta {
-        justify-content: center;
-        flex-wrap: wrap;
-      }
-
-      .features-grid,
-      .pricing-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .steps {
-        grid-template-columns: repeat(2, 1fr);
-      }
-
-      .footer-content {
-        grid-template-columns: 1fr 1fr;
-      }
-
-      .pricing-card.popular {
-        transform: none;
-      }
-    }
-
-    @media (max-width: 480px) {
-      .nav-links {
-        display: none;
-      }
-
-      .steps {
-        grid-template-columns: 1fr;
-      }
-
-      .footer-content {
-        grid-template-columns: 1fr;
-      }
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Always Answer - Stop Missing Money</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --dark: #111827;
+            --light: #f3f4f6;
+            --green: #10b981;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: var(--dark);
+            margin: 0;
+            padding: 0;
+            background: #fff;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        /* HERO SECTION */
+        .hero {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            color: white;
+            padding: 80px 0;
+            text-align: center;
+        }
+        h1 {
+            font-size: 3.5rem;
+            margin-bottom: 20px;
+            line-height: 1.1;
+            font-weight: 800;
+        }
+        .subtitle {
+            font-size: 1.5rem;
+            color: #94a3b8;
+            max-width: 700px;
+            margin: 0 auto 40px;
+        }
+        .demo-box {
+            background: rgba(255,255,255,0.1);
+            border: 2px solid rgba(255,255,255,0.2);
+            padding: 30px;
+            border-radius: 16px;
+            display: inline-block;
+            margin-bottom: 40px;
+        }
+        .demo-label {
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-size: 0.9rem;
+            color: #94a3b8;
+            margin-bottom: 10px;
+            display: block;
+        }
+        .phone-number {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #fbbf24; /* Amber/Yellow */
+            text-decoration: none;
+            display: block;
+        }
+        .cta-button {
+            display: inline-block;
+            background: var(--primary);
+            color: white;
+            padding: 16px 32px;
+            border-radius: 8px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            text-decoration: none;
+            transition: background 0.2s;
+        }
+        .cta-button:hover {
+            background: #1d4ed8;
+        }
+
+        /* COMPARISON SECTION */
+        .comparison {
+            padding: 80px 0;
+            background: var(--light);
+        }
+        .table-container {
+            overflow-x: auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            padding: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 15px;
+            text-align: center;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        th {
+            font-size: 1.1rem;
+            color: #64748b;
+        }
+        .highlight-col {
+            background: #eff6ff;
+            font-weight: bold;
+            color: var(--primary);
+            border-radius: 8px;
+        }
+        .check { color: var(--green); font-size: 1.2rem; }
+        .cross { color: #ef4444; font-size: 1.2rem; }
+
+        /* FEATURES GRID */
+        .features {
+            padding: 80px 0;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 40px;
+            margin-top: 40px;
+        }
+        .feature-card {
+            padding: 30px;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            transition: transform 0.2s;
+        }
+        .feature-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--primary);
+        }
+        .feature-icon {
+            font-size: 2rem;
+            margin-bottom: 20px;
+            display: block;
+        }
+
+        /* PRICING */
+        .pricing {
+            padding: 80px 0;
+            background: #111827;
+            color: white;
+            text-align: center;
+        }
+        .price-card {
+            background: white;
+            color: var(--dark);
+            max-width: 400px;
+            margin: 40px auto;
+            padding: 40px;
+            border-radius: 16px;
+            position: relative;
+        }
+        .price-tag {
+            font-size: 3.5rem;
+            font-weight: 800;
+            color: var(--primary);
+        }
+        .period {
+            font-size: 1rem;
+            color: #64748b;
+        }
+
+        /* FOOTER */
+        footer {
+            padding: 40px 0;
+            text-align: center;
+            color: #64748b;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        @media (max-width: 768px) {
+            h1 { font-size: 2.5rem; }
+            .phone-number { font-size: 1.8rem; }
+        }
+    </style>
 </head>
 <body>
-  <header>
-    <nav class="container">
-      <a href="/" class="logo">AI Receptionist</a>
-      <div class="nav-links">
-        <a href="#features">Features</a>
-        <a href="#pricing">Pricing</a>
-        <a href="#how-it-works">How It Works</a>
-        <a href="/dashboard" class="btn btn-primary">Dashboard</a>
-      </div>
-    </nav>
-  </header>
 
-  <main>
-    <section class="hero">
-      <div class="container">
-        <div class="hero-content">
-          <div>
-            <h1>Never Miss a <span>Business Call</span> Again</h1>
-            <p>AI-powered phone receptionist that answers calls 24/7, qualifies leads, and books appointments - while you focus on running your business.</p>
-            <div class="hero-cta">
-              <a href="#pricing" class="btn btn-primary btn-large">Start Free Trial</a>
-              <div class="demo-phone">
-                <span>📞</span> Call to try: <strong id="demo-number">Loading...</strong>
-              </div>
+    <!-- HERO -->
+    <div class="hero">
+        <div class="container">
+            <h1>Stop Missing Money.</h1>
+            <p class="subtitle">Every missed call is a lead gifted to your competitor.<br>Our AI Receptionist answers 24/7, books appointments, and closes deals.</p>
+            
+            <div class="demo-box">
+                <span class="demo-label">Call the Live Demo</span>
+                <a href="tel:8175338424" class="phone-number">(817) 533-8424</a>
             </div>
-          </div>
-          <div class="hero-image">
-            <svg viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg">
-              <rect fill="#f3f4f6" width="400" height="300" rx="20"/>
-              <rect x="50" y="40" width="300" height="200" fill="white" rx="10"/>
-              <circle cx="200" cy="100" r="30" fill="#2563eb"/>
-              <text x="200" y="108" text-anchor="middle" fill="white" font-size="24">AI</text>
-              <rect x="100" y="150" width="200" height="15" fill="#e5e7eb" rx="5"/>
-              <rect x="100" y="150" width="140" height="15" fill="#10b981" rx="5"/>
-              <text x="200" y="200" text-anchor="middle" fill="#6b7280" font-size="12">Handling your calls 24/7</text>
-              <circle cx="80" cy="260" r="8" fill="#10b981"/>
-              <text x="95" y="264" fill="#374151" font-size="10">Active</text>
-              <text x="280" y="264" fill="#6b7280" font-size="10">142 calls today</text>
-            </svg>
-          </div>
-        </div>
-      </div>
-    </section>
 
-    <section class="features" id="features">
-      <div class="container">
-        <div class="section-header">
-          <h2>Everything Your Business Needs</h2>
-          <p>Stop missing calls, losing leads, and paying for expensive receptionists</p>
+            <div>
+                <a href="/checkout?plan=basic" class="cta-button">Get Started - $99/mo</a>
+            </div>
+            <p style="margin-top: 15px; font-size: 0.9rem; opacity: 0.8;">No contracts. 14-day money-back guarantee.</p>
         </div>
-        <div class="features-grid">
-          <div class="feature-card">
-            <div class="feature-icon">📞</div>
-            <h3>24/7 Availability</h3>
-            <p>Never miss a call - your AI receptionist answers every time, even at 3 AM on holidays.</p>
-          </div>
-          <div class="feature-card">
-            <div class="feature-icon">🎯</div>
-            <h3>Lead Qualification</h3>
-            <p>Automatically qualify leads, collect contact info, and score prospects before they reach you.</p>
-          </div>
-          <div class="feature-card">
-            <div class="feature-icon">📅</div>
-            <h3>Appointment Booking</h3>
-            <p>Integrates with your calendar to book appointments and send confirmations automatically.</p>
-          </div>
-          <div class="feature-card">
-            <div class="feature-icon">💬</div>
-            <h3>Natural Conversations</h3>
-            <p>Powered by advanced AI that sounds human and handles complex questions with ease.</p>
-          </div>
-          <div class="feature-card">
-            <div class="feature-icon">📊</div>
-            <h3>Call Analytics</h3>
-            <p>Full transcripts, recordings, and insights on every call to improve your business.</p>
-          </div>
-          <div class="feature-card">
-            <div class="feature-icon">🔗</div>
-            <h3>CRM Integration</h3>
-            <p>Syncs with HubSpot, Salesforce, and more to keep your pipeline updated automatically.</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="pricing" id="pricing">
-      <div class="container">
-        <div class="section-header">
-          <h2>Simple, Transparent Pricing</h2>
-          <p>No hidden fees. Cancel anytime. Start with a 14-day free trial.</p>
-        </div>
-        <div class="pricing-grid">
-          <div class="pricing-card">
-            <h3>Basic</h3>
-            <div class="price">$99<span>/month</span></div>
-            <p class="price-note">Perfect for small businesses</p>
-            <ul class="pricing-features">
-              <li>500 minutes/month</li>
-              <li>Basic AI receptionist</li>
-              <li>Call transcripts</li>
-              <li>Email notifications</li>
-              <li>Business hours support</li>
-            </ul>
-            <a href="/checkout?plan=basic" class="btn btn-secondary">Start Free Trial</a>
-          </div>
-          <div class="pricing-card popular">
-            <span class="popular-badge">Most Popular</span>
-            <h3>Pro</h3>
-            <div class="price">$299<span>/month</span></div>
-            <p class="price-note">For growing businesses</p>
-            <ul class="pricing-features">
-              <li>2,000 minutes/month</li>
-              <li>Advanced AI with memory</li>
-              <li>CRM integration</li>
-              <li>Custom voice & personality</li>
-              <li>24/7 availability</li>
-              <li>Priority support</li>
-            </ul>
-            <a href="/checkout?plan=pro" class="btn btn-primary">Start Free Trial</a>
-          </div>
-          <div class="pricing-card">
-            <h3>Enterprise</h3>
-            <div class="price">Custom</div>
-            <p class="price-note">For large organizations</p>
-            <ul class="pricing-features">
-              <li>Unlimited minutes</li>
-              <li>Multiple phone lines</li>
-              <li>Custom integrations</li>
-              <li>Dedicated support</li>
-              <li>White-label option</li>
-              <li>SLA guarantee</li>
-            </ul>
-            <a href="/contact" class="btn btn-secondary">Contact Sales</a>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="how-it-works" id="how-it-works">
-      <div class="container">
-        <div class="section-header">
-          <h2>Up and Running in Minutes</h2>
-          <p>Getting started is easy - no technical expertise required</p>
-        </div>
-        <div class="steps">
-          <div class="step">
-            <div class="step-number">1</div>
-            <h3>Sign Up</h3>
-            <p>Create your account and choose a plan that fits your needs</p>
-          </div>
-          <div class="step">
-            <div class="step-number">2</div>
-            <h3>Configure</h3>
-            <p>Tell us about your business so the AI knows how to represent you</p>
-          </div>
-          <div class="step">
-            <div class="step-number">3</div>
-            <h3>Connect</h3>
-            <p>Get a new number or forward your existing one to your AI</p>
-          </div>
-          <div class="step">
-            <div class="step-number">4</div>
-            <h3>Go Live</h3>
-            <p>Start receiving calls handled professionally 24/7</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="cta">
-      <div class="container">
-        <h2>Ready to Transform Your Business?</h2>
-        <p>Join thousands of businesses that never miss a call</p>
-        <a href="#pricing" class="btn btn-secondary btn-large">Start Your Free Trial</a>
-      </div>
-    </section>
-  </main>
-
-  <footer>
-    <div class="container">
-      <div class="footer-content">
-        <div class="footer-brand">
-          <a href="/" class="logo">AI Receptionist</a>
-          <p>The smartest way to handle your business calls. Powered by advanced AI technology.</p>
-        </div>
-        <div>
-          <h4>Product</h4>
-          <ul>
-            <li><a href="#features">Features</a></li>
-            <li><a href="#pricing">Pricing</a></li>
-            <li><a href="/demo">Live Demo</a></li>
-          </ul>
-        </div>
-        <div>
-          <h4>Company</h4>
-          <ul>
-            <li><a href="/about">About</a></li>
-            <li><a href="/contact">Contact</a></li>
-            <li><a href="/careers">Careers</a></li>
-          </ul>
-        </div>
-        <div>
-          <h4>Legal</h4>
-          <ul>
-            <li><a href="/privacy">Privacy Policy</a></li>
-            <li><a href="/terms">Terms of Service</a></li>
-          </ul>
-        </div>
-      </div>
-      <div class="footer-bottom">
-        <p>&copy; 2026 AI Receptionist. All rights reserved.</p>
-      </div>
     </div>
-  </footer>
 
-  <script>
-    // Fetch and display demo number
-    fetch('/api/demo-number')
-      .then(res => res.json())
-      .then(data => {
-        document.getElementById('demo-number').textContent = data.number || 'Coming Soon';
-      })
-      .catch(() => {
-        document.getElementById('demo-number').textContent = 'Call for Demo';
-      });
-  </script>
+    <!-- COMPARISON -->
+    <div class="comparison">
+        <div class="container">
+            <h2 style="text-align: center; font-size: 2.5rem; margin-bottom: 40px;">The Math is Simple.</h2>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Feature</th>
+                            <th>Human Receptionist</th>
+                            <th>Answering Service</th>
+                            <th class="highlight-col">AI Always Answer</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Cost</strong></td>
+                            <td>$3,000 / mo</td>
+                            <td>$300 / mo</td>
+                            <td class="highlight-col">$99 / mo</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Availability</strong></td>
+                            <td>9am - 5pm</td>
+                            <td>24/7 (Usually)</td>
+                            <td class="highlight-col">24/7 (Always)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Sick Days</strong></td>
+                            <td><span class="cross">Yes</span></td>
+                            <td><span class="cross">Maybe</span></td>
+                            <td class="highlight-col"><span class="check">Never</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Missed Calls</strong></td>
+                            <td><span class="cross">When busy</span></td>
+                            <td><span class="cross">Long hold times</span></td>
+                            <td class="highlight-col"><span class="check">Zero</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Instant SMS</strong></td>
+                            <td><span class="cross">No</span></td>
+                            <td><span class="cross">No</span></td>
+                            <td class="highlight-col"><span class="check">Yes</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- FEATURES -->
+    <div class="features">
+        <div class="container">
+            <h2 style="text-align: center; font-size: 2.5rem;">How It Works</h2>
+            <div class="grid">
+                <div class="feature-card">
+                    <span class="feature-icon">📞</span>
+                    <h3>1. Get Your Number</h3>
+                    <p>We provide a dedicated local number (817, 214, 512, etc) or port your existing one.</p>
+                </div>
+                <div class="feature-card">
+                    <span class="feature-icon">🤖</span>
+                    <h3>2. AI Answers Instantly</h3>
+                    <p>It sounds human, knows your pricing, and follows your custom instructions perfectly.</p>
+                </div>
+                <div class="feature-card">
+                    <span class="feature-icon">📅</span>
+                    <h3>3. Appointments Booked</h3>
+                    <p>The AI schedules jobs directly on your calendar and texts you the lead details immediately.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PRICING -->
+    <div class="pricing">
+        <div class="container">
+            <h2>Start Today</h2>
+            <div class="price-card">
+                <h3>Standard Plan</h3>
+                <div class="price-tag">$99<span class="period">/mo</span></div>
+                <ul style="list-style: none; padding: 0; margin: 30px 0; text-align: left;">
+                    <li style="margin-bottom: 10px;">✅ 500 Minutes Included</li>
+                    <li style="margin-bottom: 10px;">✅ 24/7 Availability</li>
+                    <li style="margin-bottom: 10px;">✅ Call Forwarding</li>
+                    <li style="margin-bottom: 10px;">✅ SMS Follow-up</li>
+                    <li style="margin-bottom: 10px;">✅ Appointment Booking</li>
+                </ul>
+                <a href="/checkout?plan=basic" class="cta-button" style="width: 100%; box-sizing: border-box;">Subscribe Now</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer>
+        <div class="container">
+            <p><strong>AI Always Answer</strong> &bull; A Widescope Industries Company</p>
+            <p>We don't do voicemail. We do business.</p>
+        </div>
+    </footer>
+
 </body>
 </html>
