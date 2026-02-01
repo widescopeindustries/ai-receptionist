@@ -19,6 +19,13 @@ const conversations = new Map();
 const aiService = new AIService();
 
 /**
+ * Root endpoint - simple health check for Railway
+ */
+app.get('/', (req, res) => {
+  res.send('AI Receptionist is active and ready to close! 🚀');
+});
+
+/**
  * Utility to strip emojis from text so they aren't read out loud by TTS
  */
 function cleanTextForTTS(text) {
