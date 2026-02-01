@@ -49,7 +49,7 @@ app.post('/voice/incoming', async (req, res) => {
   conversations.set(callSid, conversationManager);
 
   // Greet the caller
-  const greeting = "Widescope Industries. I don't do voicemail, I do business. Who am I speaking with?";
+  const greeting = "AI Always Answer. I don't do voicemail, I do business. Who am I speaking with?";
 
   twiml.say({
     voice: 'Polly.Danielle-Neural',
