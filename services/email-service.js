@@ -1,55 +1,29 @@
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 
 class EmailService {
   constructor() {
-    console.log(`📧 Initializing Email Service with Host: ${process.env.SMTP_HOST}, Port: ${process.env.SMTP_PORT}, Secure: ${process.env.SMTP_SECURE}`);
-    
-    // We force specific settings for STARTTLS on 587 if the port is 587
-    const port = parseInt(process.env.SMTP_PORT) || 587;
-    const isPort587 = port === 587;
-
-    this.transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: port,
-      secure: isPort587 ? false : (process.env.SMTP_SECURE === 'true'),
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      },
-      tls: {
-        rejectUnauthorized: false,
-        minVersion: 'TLSv1.2'
-      },
-      // If using 587, we usually want to require TLS
-      requireTLS: isPort587,
-      connectionTimeout: 30000,
-      greetingTimeout: 30000,
-      socketTimeout: 30000,
-      debug: true,
-      logger: true
-    });
-
-    this.verifyConnection();
-  }
-
-  async verifyConnection() {
-    try {
-      console.log('📧 Verifying SMTP connection...');
-      await this.transporter.verify();
-      console.log('✅ Email service initialized (SMTP connection verified)');
-    } catch (error) {
-      console.error('❌ Email service initialization failed:', error.message);
-      // Don't log full error with secrets, but log code and command
-      console.error('❌ Error Code:', error.code);
+    this.resend = null;
+    if (process.env.RESEND_API_KEY) {
+      this.resend = new Resend(process.env.RESEND_API_KEY);
+      console.log('✅ Email service initialized with Resend API');
+    } else {
+      console.warn('⚠️ Resend API Key missing. Email functionality will be disabled.');
     }
   }
 
   async sendSetupLink(toEmail, setupLink) {
-    console.log(`📧 Attempting to send setup link to: ${toEmail}`);
+    if (!this.resend) {
+      console.error('❌ Cannot send email: Resend API not initialized.');
+      return false;
+    }
+
+    console.log(`📧 Sending setup link via Resend to: ${toEmail}`);
     try {
-      const info = await this.transporter.sendMail({
-        from: `"AI Receptionist" <${process.env.SMTP_USER}>`,
-        to: toEmail,
+      const { data, error } = await this.resend.emails.send({
+        from: 'AI Receptionist <onboarding@resend.dev>', // Default for unverified domains
+        // Replace with your verified sender once domain is verified in Resend:
+        // from: 'AI Receptionist <sales@aialwaysanswer.com>',
+        to: [toEmail],
         subject: "Your AI Receptionist Setup Link",
         text: `Welcome to AI Always Answer!
 
@@ -77,10 +51,15 @@ The AI Always Answer Team`,
         `,
       });
 
-      console.log("📧 Email sent successfully: %s", info.messageId);
+      if (error) {
+        console.error("❌ Resend error:", error);
+        return false;
+      }
+
+      console.log("📧 Email sent successfully via Resend. ID:", data.id);
       return true;
-    } catch (error) {
-      console.error("❌ Error sending email:", error.message);
+    } catch (err) {
+      console.error("❌ Unexpected error sending email via Resend:", err.message);
       return false;
     }
   }
