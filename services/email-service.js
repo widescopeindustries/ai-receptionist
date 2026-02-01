@@ -2,22 +2,25 @@ const nodemailer = require('nodemailer');
 
 class EmailService {
   constructor() {
+    console.log(`📧 Initializing Email Service with Host: ${process.env.SMTP_HOST}, Port: ${process.env.SMTP_PORT}, Secure: ${process.env.SMTP_SECURE}`);
+    
     this.transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
-      port: parseInt(process.env.SMTP_PORT) || 587,
-      secure: process.env.SMTP_SECURE === 'true', // true for 465, false for other ports
+      port: parseInt(process.env.SMTP_PORT) || 465,
+      secure: process.env.SMTP_SECURE === 'true',
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
       },
-      // Namecheap / PrivateEmail often needs these settings to avoid timeouts
       tls: {
         rejectUnauthorized: false,
         minVersion: 'TLSv1.2'
       },
-      connectionTimeout: 10000, // 10 seconds
-      greetingTimeout: 10000,
-      socketTimeout: 10000
+      connectionTimeout: 30000, // 30 seconds
+      greetingTimeout: 30000,
+      socketTimeout: 30000,
+      debug: true,
+      logger: true
     });
 
     this.verifyConnection();
@@ -25,10 +28,12 @@ class EmailService {
 
   async verifyConnection() {
     try {
+      console.log('📧 Verifying SMTP connection...');
       await this.transporter.verify();
       console.log('✅ Email service initialized (SMTP connection verified)');
     } catch (error) {
       console.error('❌ Email service initialization failed:', error.message);
+      console.error('❌ Full Error:', JSON.stringify(error));
     }
   }
 
