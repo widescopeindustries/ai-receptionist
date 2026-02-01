@@ -4,10 +4,14 @@ class EmailService {
   constructor() {
     console.log(`📧 Initializing Email Service with Host: ${process.env.SMTP_HOST}, Port: ${process.env.SMTP_PORT}, Secure: ${process.env.SMTP_SECURE}`);
     
+    // We force specific settings for STARTTLS on 587 if the port is 587
+    const port = parseInt(process.env.SMTP_PORT) || 587;
+    const isPort587 = port === 587;
+
     this.transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
-      port: parseInt(process.env.SMTP_PORT) || 465,
-      secure: process.env.SMTP_SECURE === 'true',
+      port: port,
+      secure: isPort587 ? false : (process.env.SMTP_SECURE === 'true'),
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
@@ -16,7 +20,9 @@ class EmailService {
         rejectUnauthorized: false,
         minVersion: 'TLSv1.2'
       },
-      connectionTimeout: 30000, // 30 seconds
+      // If using 587, we usually want to require TLS
+      requireTLS: isPort587,
+      connectionTimeout: 30000,
       greetingTimeout: 30000,
       socketTimeout: 30000,
       debug: true,
@@ -33,7 +39,8 @@ class EmailService {
       console.log('✅ Email service initialized (SMTP connection verified)');
     } catch (error) {
       console.error('❌ Email service initialization failed:', error.message);
-      console.error('❌ Full Error:', JSON.stringify(error));
+      // Don't log full error with secrets, but log code and command
+      console.error('❌ Error Code:', error.code);
     }
   }
 
