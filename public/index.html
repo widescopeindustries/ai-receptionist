@@ -21,17 +21,17 @@
                         <span class="material-symbols-outlined text-emerald-500 font-bold">check_circle</span> <span>Appointment Booking</span>
                     </li>
                 </ul>
-                <button class="w-full bg-primary hover:bg-blue-700 text-white font-bold py-5 rounded-2xl shadow-lg shadow-blue-500/20 transition-all transform hover:scale-[1.02]"> Subscribe Now </button>
+                <a href="https://buy.stripe.com/dRm4gzdiF6aqcykcfZ18c07" class="w-full block bg-primary hover:bg-blue-700 text-white font-bold py-5 rounded-2xl shadow-lg shadow-blue-500/20 transition-all transform hover:scale-[1.02] text-center"> Subscribe Now </a>
             </div>
 
             <!-- Lead Capture Form -->
             <div class="text-left order-1 md:order-2">
                 <h2 class="font-display text-4xl font-bold mb-6">Want a Custom Demo?</h2>
                 <p class="text-slate-400 mb-8 text-lg">Leave your details and we'll build a custom AI persona for your business within 24 hours.</p>
-                <form class="space-y-4" action="https://formspree.io/f/YOUR_ID" method="POST">
+                <form class="space-y-4" id="demo-form">
                     <div>
                         <label class="block text-sm font-medium text-slate-300 mb-2">Business Name</label>
-                        <input type="text" name="business" class="w-full bg-slate-800 border-slate-700 rounded-xl px-4 py-3 focus:ring-primary focus:border-primary text-white" placeholder="e.g. Fort Worth Plumbing" required>
+                        <input type="text" name="company" class="w-full bg-slate-800 border-slate-700 rounded-xl px-4 py-3 focus:ring-primary focus:border-primary text-white" placeholder="e.g. Fort Worth Plumbing" required>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-slate-300 mb-2">Email Address</label>
@@ -39,10 +39,41 @@
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-slate-300 mb-2">Phone Number</label>
-                        <input type="tel" name="phone" class="w-full bg-slate-800 border-slate-700 rounded-xl px-4 py-3 focus:ring-primary focus:border-primary text-white" placeholder="(817) 000-0000">
+                        <input type="tel" name="phone" class="w-full bg-slate-800 border-slate-700 rounded-xl px-4 py-3 focus:ring-primary focus:border-primary text-white" placeholder="(817) 000-0000" required>
                     </div>
-                    <button type="submit" class="w-full bg-accent-neon hover:bg-blue-400 text-slate-900 font-bold py-4 rounded-xl transition-all"> Get My Custom Demo </button>
+                    <button type="submit" id="demo-submit" class="w-full bg-accent-neon hover:bg-blue-400 text-slate-900 font-bold py-4 rounded-xl transition-all"> Get My Custom Demo </button>
                 </form>
+                <script>
+                    document.getElementById('demo-form').addEventListener('submit', async (e) => {
+                        e.preventDefault();
+                        const btn = document.getElementById('demo-submit');
+                        btn.disabled = true;
+                        btn.textContent = 'Sending...';
+                        
+                        const formData = new FormData(e.target);
+                        const data = Object.fromEntries(formData.entries());
+                        
+                        try {
+                            const response = await fetch('/api/leads', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(data)
+                            });
+                            
+                            if (response.ok) {
+                                alert('Success! We will contact you shortly with your custom demo.');
+                                e.target.reset();
+                            } else {
+                                throw new Error('Failed to submit');
+                            }
+                        } catch (err) {
+                            alert('Something went wrong. Please call us directly at (817) 533-8424.');
+                        } finally {
+                            btn.disabled = false;
+                            btn.textContent = 'Get My Custom Demo';
+                        }
+                    });
+                </script>
             </div>
         </div>
     </div>
