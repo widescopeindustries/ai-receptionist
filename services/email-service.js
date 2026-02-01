@@ -4,12 +4,20 @@ class EmailService {
   constructor() {
     this.transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
-      port: process.env.SMTP_PORT || 587,
+      port: parseInt(process.env.SMTP_PORT) || 587,
       secure: process.env.SMTP_SECURE === 'true', // true for 465, false for other ports
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
       },
+      // Namecheap / PrivateEmail often needs these settings to avoid timeouts
+      tls: {
+        rejectUnauthorized: false,
+        minVersion: 'TLSv1.2'
+      },
+      connectionTimeout: 10000, // 10 seconds
+      greetingTimeout: 10000,
+      socketTimeout: 10000
     });
 
     this.verifyConnection();
@@ -20,16 +28,17 @@ class EmailService {
       await this.transporter.verify();
       console.log('✅ Email service initialized (SMTP connection verified)');
     } catch (error) {
-      console.error('❌ Email service initialization failed:', error);
+      console.error('❌ Email service initialization failed:', error.message);
     }
   }
 
   async sendSetupLink(toEmail, setupLink) {
+    console.log(`📧 Attempting to send setup link to: ${toEmail}`);
     try {
       const info = await this.transporter.sendMail({
-        from: `"AI Receptionist" <${process.env.SMTP_USER}>`, // sender address
-        to: toEmail, // list of receivers
-        subject: "Your AI Receptionist Setup Link", // Subject line
+        from: `"AI Receptionist" <${process.env.SMTP_USER}>`,
+        to: toEmail,
+        subject: "Your AI Receptionist Setup Link",
         text: `Welcome to AI Always Answer!
 
 Here is your link to set up your AI Receptionist: ${setupLink}
@@ -37,7 +46,7 @@ Here is your link to set up your AI Receptionist: ${setupLink}
 If you have any questions, just reply to this email.
 
 Best,
-The AI Always Answer Team`, // plain text body
+The AI Always Answer Team`,
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <h2>Welcome to AI Always Answer!</h2>
@@ -53,13 +62,13 @@ The AI Always Answer Team`, // plain text body
             <p>Best,</p>
             <p>The AI Always Answer Team</p>
           </div>
-        `, // html body
+        `,
       });
 
-      console.log("📧 Email sent: %s", info.messageId);
+      console.log("📧 Email sent successfully: %s", info.messageId);
       return true;
     } catch (error) {
-      console.error("❌ Error sending email:", error);
+      console.error("❌ Error sending email:", error.message);
       return false;
     }
   }

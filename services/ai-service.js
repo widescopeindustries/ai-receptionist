@@ -141,15 +141,18 @@ CRITICAL RULE:
         const setupLink = "https://aialwaysanswer.com/setup";
         console.log(`📧 Sending setup link to ${functionArgs.email}...`);
         
-        const success = await this.emailService.sendSetupLink(functionArgs.email, setupLink);
+        // Send email in background - do NOT await here to avoid blocking the voice response
+        this.emailService.sendSetupLink(functionArgs.email, setupLink).catch(err => {
+          console.error("Delayed email error:", err);
+        });
         
-        // Add the function call and result to conversation history
+        // Add the function call and a "simulated" result to conversation history immediately
         messages.push(responseMessage);
         messages.push({
           tool_call_id: toolCall.id,
           role: "tool",
           name: functionName,
-          content: success ? "Email sent successfully." : "Failed to send email. Check SMTP settings.",
+          content: "Email sending initiated.",
         });
 
         // Get a follow-up response from the model
