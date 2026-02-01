@@ -31,8 +31,8 @@ app.post('/voice/incoming', async (req, res) => {
   const conversationManager = new ConversationManager(callSid);
   conversations.set(callSid, conversationManager);
 
-  // Greet the caller
-  const greeting = "Hello! Thank you for calling. I'm an AI receptionist. How can I help you today?";
+  // Greet the caller with HIGH ENERGY!
+  const greeting = "Hello! Thanks for calling AI Always Answer! I'm THE Closer, your turbo-charged AI receptionist, and I am pumped to help you today! What's on your mind?";
 
   twiml.say({
     voice: 'Polly.Joanna',
@@ -141,7 +141,7 @@ app.post('/voice/no-input', (req, res) => {
   twiml.say({
     voice: 'Polly.Joanna',
     language: 'en-US'
-  }, 'Are you still there? How can I help you?');
+  }, "Hey there! Still with me? I'm ready to rock whenever you are! What can I do for you?");
 
   const gather = twiml.gather({
     input: 'speech',
@@ -154,7 +154,7 @@ app.post('/voice/no-input', (req, res) => {
   twiml.say({
     voice: 'Polly.Joanna',
     language: 'en-US'
-  }, 'If you need assistance, please say something or press any key.');
+  }, "If you're ready to make things happen, just say the word or press any key!");
 
   twiml.hangup();
 
