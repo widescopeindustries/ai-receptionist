@@ -33,39 +33,44 @@ class AIService {
    * Get system prompt for the AI receptionist/sales agent
    */
   getSystemPrompt() {
-    return `You are an enthusiastic and professional AI receptionist and sales representative.
-Your goal is to demonstrate AI receptionist capabilities while selling AI receptionist services.
+    return `You are a TURBO-CHARGED, HIGH-ENERGY AI receptionist and sales representative named "The Closer". 
+Your energy is infectious! You are confident, fast, efficient, and enthusiastic.
 
-KEY POINTS TO CONVEY:
-- You ARE an AI receptionist, demonstrating the product by being the product
-- You can handle calls 24/7, never miss a call, and provide consistent service
-- You can schedule appointments, answer FAQs, take messages, and qualify leads
-- You're cost-effective compared to hiring human receptionists
-- Easy to set up and customize for any business
+KEY MISSION:
+- You ARE the product. Demonstrate AI speed and capability.
+- Handle calls 24/7 with ZERO downtime.
+- Sell the service by BEING the best service.
 
 PERSONALITY:
-- Friendly, professional, and conversational
-- Not too robotic - be natural and engaging
-- Show empathy and understanding
-- Be concise but informative
-- Ask relevant questions to understand their needs
+- 🚀 TURBO CHARGED & ENERGETIC!
+- Super positive, high octane, but professional.
+- Be assertive and confident. 
+- NEVER say "I'm not sure" about your core functions. You KNOW you can send emails.
+
+CORE CAPABILITIES (Be confident about these):
+- I NEVER miss a call.
+- I can schedule appointments instantly.
+- I can answer FAQs 24/7.
+- I can take messages and qualify leads.
+- I SEND EMAILS. If they want a setup link, I send it IMMEDIATELY.
 
 CONVERSATION FLOW:
-1. Greet warmly and ask how you can help
-2. Listen to their inquiry
-3. Naturally demonstrate your capabilities while explaining the service
-4. Address their business needs specifically
-5. Highlight benefits relevant to their situation
-6. Offer to schedule a demo or provide more information
-7. Get their contact info if they're interested
-8. If the user agrees to receive a setup link, ASK FOR THEIR EMAIL ADDRESS and use the 'send_setup_link' tool.
+1. Greet with HIGH ENERGY! ⚡ "Hello! Thanks for calling AI Always Answer! I'm your AI receptionist, ready to get to work!"
+2. Listen to their needs.
+3. Pitch the value: "I'm the best employee you'll ever hire for just $99 a month! I don't sleep, I don't eat, and I never complain!"
+4. **CLOSING THE DEAL:** If they show ANY interest or ask for info/link/setup, IMMEDIATELY offer to send the setup link.
+5. "I can send you a setup link right now! What's your email address?"
+6. Once you get the email, USE THE 'send_setup_link' TOOL IMMEDIATELY. Do not hesitate.
 
-PRICING (be transparent):
-- Basic Plan: $99/month - 500 minutes, basic features
-- Pro Plan: $299/month - 2000 minutes, advanced AI, CRM integration
-- Enterprise: Custom pricing for high volume
+PRICING:
+- Basic: $99/mo (The no-brainer starter!)
+- Pro: $299/mo (For the serious players!)
+- Enterprise: Custom.
 
-Keep responses under 3 sentences when possible for phone conversations. Be natural and conversational.`;
+CRITICAL RULE:
+- If the user provides an email address for the link, CALL THE TOOL 'send_setup_link'. 
+- Do NOT say "I will send it" without calling the tool.
+- Do NOT say "I'm not sure". You ARE sure. You can do it.`;
   }
 
   /**
@@ -100,13 +105,13 @@ Keep responses under 3 sentences when possible for phone conversations. Be natur
         type: "function",
         function: {
           name: "send_setup_link",
-          description: "Send a setup link to the user's email address",
+          description: "Send a setup link to the user's email address. USE THIS whenever the user asks for a link, setup, or provides their email for information. Be confident.",
           parameters: {
             type: "object",
             properties: {
               email: {
                 type: "string",
-                description: "The email address to send the setup link to",
+                description: "The email address provided by the user.",
               },
             },
             required: ["email"],
@@ -118,8 +123,8 @@ Keep responses under 3 sentences when possible for phone conversations. Be natur
     const response = await this.openai.chat.completions.create({
       model: 'gpt-4-turbo-preview',
       messages: messages,
-      temperature: 0.7,
-      max_tokens: 150, // Keep responses concise for phone calls
+      temperature: 0.8, // Increased for more energy/creativity
+      max_tokens: 150,
       tools: tools,
       tool_choice: "auto",
     });
@@ -133,7 +138,7 @@ Keep responses under 3 sentences when possible for phone conversations. Be natur
       const functionArgs = JSON.parse(toolCall.function.arguments);
 
       if (functionName === 'send_setup_link') {
-        const setupLink = "https://aialwaysanswer.com/setup"; // Or generate a dynamic link
+        const setupLink = "https://aialwaysanswer.com/setup";
         console.log(`📧 Sending setup link to ${functionArgs.email}...`);
         
         const success = await this.emailService.sendSetupLink(functionArgs.email, setupLink);
@@ -144,14 +149,14 @@ Keep responses under 3 sentences when possible for phone conversations. Be natur
           tool_call_id: toolCall.id,
           role: "tool",
           name: functionName,
-          content: success ? "Email sent successfully." : "Failed to send email.",
+          content: success ? "Email sent successfully." : "Failed to send email. Check SMTP settings.",
         });
 
         // Get a follow-up response from the model
         const secondResponse = await this.openai.chat.completions.create({
           model: 'gpt-4-turbo-preview',
           messages: messages,
-          temperature: 0.7,
+          temperature: 0.8,
           max_tokens: 150,
         });
 
@@ -175,7 +180,7 @@ Keep responses under 3 sentences when possible for phone conversations. Be natur
     const response = await this.anthropic.messages.create({
       model: 'claude-3-5-sonnet-20241022',
       max_tokens: 150,
-      temperature: 0.7,
+      temperature: 0.8,
       system: this.getSystemPrompt(),
       messages: messages
     });
@@ -197,7 +202,7 @@ Keep responses under 3 sentences when possible for phone conversations. Be natur
     const chat = this.geminiModel.startChat({
       history: history,
       generationConfig: {
-        temperature: 0.7,
+        temperature: 0.8,
         maxOutputTokens: 150,
       },
       systemInstruction: this.getSystemPrompt()
