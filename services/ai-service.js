@@ -52,7 +52,7 @@ class AIService {
       
       if (fs.existsSync(scriptPath)) {
         const scriptContent = fs.readFileSync(scriptPath, 'utf8');
-        return `You are the AI Sales Agent for Widescope Industries.
+        return `You are the AI Sales Agent for AI Always Answer.
 You are a high-performance sales consultant.
 
 CORE INSTRUCTIONS:
@@ -73,7 +73,7 @@ IMPORTANT OPERATIONAL RULES:
     }
 
     // Fallback if file read fails
-    return `You are the AI Sales Agent for Widescope Industries.
+    return `You are the AI Sales Agent for AI Always Answer.
 You are a high-performance sales consultant.
 
 CORE INSTRUCTIONS:
