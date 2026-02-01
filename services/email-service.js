@@ -20,9 +20,7 @@ class EmailService {
     console.log(`📧 Sending setup link via Resend to: ${toEmail}`);
     try {
       const { data, error } = await this.resend.emails.send({
-        from: 'AI Receptionist <onboarding@resend.dev>', // Default for unverified domains
-        // Replace with your verified sender once domain is verified in Resend:
-        // from: 'AI Receptionist <sales@aialwaysanswer.com>',
+        from: 'AI Always Answer <sales@aialwaysanswer.com>',
         to: [toEmail],
         subject: "Your AI Receptionist Setup Link",
         text: `Welcome to AI Always Answer!
