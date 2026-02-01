@@ -19,6 +19,15 @@ const conversations = new Map();
 const aiService = new AIService();
 
 /**
+ * Utility to strip emojis from text so they aren't read out loud by TTS
+ */
+function cleanTextForTTS(text) {
+  if (!text) return "";
+  // Regular expression to match emojis and other non-ASCII characters that might confuse TTS
+  return text.replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g, '');
+}
+
+/**
  * Main webhook endpoint - Twilio calls this when someone dials your number
  */
 app.post('/voice/incoming', async (req, res) => {
@@ -80,12 +89,16 @@ app.post('/voice/process-speech', async (req, res) => {
     conversationManager.addMessage('user', userSpeech);
 
     // Get AI response
-    const aiResponse = await aiService.getResponse(
+    let aiResponse = await aiService.getResponse(
       conversationManager.getHistory(),
       userSpeech
     );
 
-    console.log('🤖 AI responds:', aiResponse);
+    console.log('🤖 AI responds (original):', aiResponse);    
+    // Clean emojis for TTS
+    aiResponse = cleanTextForTTS(aiResponse);
+    
+    console.log('🤖 AI responds (cleaned):', aiResponse);
 
     // Add AI response to history
     conversationManager.addMessage('assistant', aiResponse);
