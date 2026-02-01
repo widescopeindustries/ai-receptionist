@@ -141,7 +141,7 @@ PRICING:`;
       const functionArgs = JSON.parse(toolCall.function.arguments);
 
       if (functionName === 'send_setup_link') {
-        const setupLink = "https://aialwaysanswer.com/setup";
+        const setupLink = "https://buy.stripe.com/dRm4gzdiF6aqcykcfZ18c07";
         console.log(`📧 Sending setup link to ${functionArgs.email}...`);
         
         // Send email in background - do NOT await here to avoid blocking the voice response
