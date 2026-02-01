@@ -19,9 +19,9 @@ const conversations = new Map();
 const aiService = new AIService();
 
 /**
- * Root endpoint - simple health check for Railway
+ * Status endpoint - simple health check for Railway
  */
-app.get('/', (req, res) => {
+app.get('/status', (req, res) => {
   res.send('AI Receptionist is active and ready to close! 🚀');
 });
 
