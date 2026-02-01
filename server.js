@@ -50,14 +50,6 @@ app.post('/voice/incoming', async (req, res) => {
   // Greet the caller with HIGH ENERGY and a proactive walk-through!
   const greeting = "Hello! Thanks for calling AI Always Answer! I'm THE Closer, your turbo-charged AI receptionist! Look, you're here because every missed call is a missed deal, and we're putting a stop to that right now! I'm going to walk you through exactly how I handle your calls, schedule your appointments, and keep your business running twenty-four seven like a champion! Ready to hear how we get you live today?";
 
-  twiml.say({
-    voice: 'Polly.Joanna',
-    language: 'en-US'
-  }, greeting);
-
-  // Add the greeting to conversation history
-  conversationManager.addMessage('assistant', greeting);
-
   // Start listening for caller's response
   const gather = twiml.gather({
     input: 'speech',
@@ -66,6 +58,14 @@ app.post('/voice/incoming', async (req, res) => {
     speechModel: 'phone_call',
     enhanced: true
   });
+
+  gather.say({
+    voice: 'Polly.Joanna',
+    language: 'en-US'
+  }, greeting);
+
+  // Add the greeting to conversation history
+  conversationManager.addMessage('assistant', greeting);
 
   // If no input, prompt again
   twiml.redirect('/voice/no-input');
@@ -118,14 +118,13 @@ app.post('/voice/process-speech', async (req, res) => {
     // Add AI response to history
     conversationManager.addMessage('assistant', aiResponse);
 
-    // Speak the AI response
-    twiml.say({
-      voice: 'Polly.Joanna',
-      language: 'en-US'
-    }, aiResponse);
-
     // Check if conversation should end
     if (conversationManager.shouldEndCall(aiResponse)) {
+      twiml.say({
+        voice: 'Polly.Joanna',
+        language: 'en-US'
+      }, aiResponse);
+      
       twiml.say({
         voice: 'Polly.Joanna',
         language: 'en-US'
@@ -134,7 +133,7 @@ app.post('/voice/process-speech', async (req, res) => {
       twiml.hangup();
       conversations.delete(callSid);
     } else {
-      // Continue listening
+      // Continue listening with barge-in enabled
       const gather = twiml.gather({
         input: 'speech',
         action: '/voice/process-speech',
@@ -142,6 +141,11 @@ app.post('/voice/process-speech', async (req, res) => {
         speechModel: 'phone_call',
         enhanced: true
       });
+
+      gather.say({
+        voice: 'Polly.Joanna',
+        language: 'en-US'
+      }, aiResponse);
 
       twiml.redirect('/voice/no-input');
     }
