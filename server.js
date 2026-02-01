@@ -31,8 +31,8 @@ app.post('/voice/incoming', async (req, res) => {
   const conversationManager = new ConversationManager(callSid);
   conversations.set(callSid, conversationManager);
 
-  // Greet the caller with HIGH ENERGY!
-  const greeting = "Hello! Thanks for calling AI Always Answer! I'm THE Closer, your turbo-charged AI receptionist, and I am pumped to help you today! What's on your mind?";
+  // Greet the caller with HIGH ENERGY and a proactive walk-through!
+  const greeting = "Hello! Thanks for calling AI Always Answer! I'm THE Closer, your turbo-charged AI receptionist! Look, you're here because every missed call is a missed deal, and we're putting a stop to that right now! I'm going to walk you through exactly how I handle your calls, schedule your appointments, and keep your business running twenty-four seven like a champion! Ready to hear how we get you live today?";
 
   twiml.say({
     voice: 'Polly.Joanna',
