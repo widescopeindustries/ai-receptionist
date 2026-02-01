@@ -1,5 +1,6 @@
 require('dotenv').config();
 const express = require('express');
+const path = require('path');
 const twilio = require('twilio');
 const VoiceResponse = twilio.twiml.VoiceResponse;
 const AIService = require('./services/ai-service');
@@ -19,7 +20,14 @@ const conversations = new Map();
 const aiService = new AIService();
 
 /**
- * Status endpoint - simple health check for Railway
+ * Root endpoint - serves the landing page and acts as a health check
+ */
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+/**
+ * Status endpoint - simple text health check
  */
 app.get('/status', (req, res) => {
   res.send('AI Receptionist is active and ready to close! 🚀');
@@ -224,7 +232,7 @@ app.get('/health', (req, res) => {
 });
 
 // Start server
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 AI Receptionist server running on port ${PORT}`);
   console.log(`📱 Webhook URL: ${process.env.BASE_URL || `http://localhost:${PORT}`}/voice/incoming`);
 });
