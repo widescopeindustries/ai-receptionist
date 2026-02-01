@@ -86,14 +86,22 @@ app.post('/voice/process-speech', async (req, res) => {
 
   try {
     // Get conversation for this call
-    const conversationManager = conversations.get(callSid);
+    let conversationManager = conversations.get(callSid);
 
     if (!conversationManager) {
-      throw new Error('Conversation not found');
+      console.log(`⚠️ Conversation ${callSid} not found, initializing new session.`);
+      conversationManager = new ConversationManager(callSid);
+      conversations.set(callSid, conversationManager);
     }
 
-    // Add user message to history
-    conversationManager.addMessage('user', userSpeech);
+    // Add user message to history (handle case where SpeechResult is undefined)
+    if (userSpeech) {
+      conversationManager.addMessage('user', userSpeech);
+    } else {
+      console.log('🗣️ No speech result provided by Twilio.');
+      twiml.redirect('/voice/no-input');
+      return res.send(twiml.toString());
+    }
 
     // Get AI response
     let aiResponse = await aiService.getResponse(
@@ -138,14 +146,15 @@ app.post('/voice/process-speech', async (req, res) => {
       twiml.redirect('/voice/no-input');
     }
   } catch (error) {
-    console.error('❌ Error processing speech:', error);
+    console.error('❌ Error processing speech:', error.message);
 
     twiml.say({
       voice: 'Polly.Joanna',
       language: 'en-US'
-    }, 'I apologize, I\'m having trouble understanding. Could you please repeat that?');
+    }, "I apologize, but I had a brief tech hiccup because I was just too excited! Let's get right back to business!");
 
-    twiml.redirect('/voice/process-speech');
+    // Redirect to incoming to re-initialize and greet again safely
+    twiml.redirect('/voice/incoming');
   }
 
   res.type('text/xml');
