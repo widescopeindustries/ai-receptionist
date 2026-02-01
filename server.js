@@ -614,10 +614,10 @@ function extractLeadInfo(speech, leadId) {
 
   // Extract name (look for "my name is", "I'm", "this is")
   const namePatterns = [
-    /my name is (\w+)/i,
-    /i'm (\w+)/i,
-    /this is (\w+)/i,
-    /call me (\w+)/i
+    /my name is ([a-z]+)/i,
+    /i'm ([a-z]+)/i,
+    /this is ([a-z]+)/i,
+    /call me ([a-z]+)/i
   ];
 
   for (const pattern of namePatterns) {
@@ -642,6 +642,15 @@ function extractLeadInfo(speech, leadId) {
     }
   }
 
+  // Extract email addresses
+  // Note: Phone STT often adds spaces in emails (e.g. "lyndon at gmail dot com" or "lyndon @ gmail . com")
+  // This is a basic attempt to catch standard formats
+  const emailPattern = /([a-zA-Z0-9._%+-]+\s*@\s*[a-zA-Z0-9.-]+\s*\.\s*[a-zA-Z]{2,4})/i;
+  const emailMatch = speech.match(emailPattern);
+  if (emailMatch) {
+    updates.email = emailMatch[1].replace(/\s+/g, ''); // Remove spaces
+  }
+
   // Detect interest level based on keywords
   if (speechLower.includes('pricing') || speechLower.includes('how much') || speechLower.includes('cost')) {
     updates.interest_level = 'high';
@@ -650,10 +659,9 @@ function extractLeadInfo(speech, leadId) {
   }
 
   // Update lead in database
-  const lead = db.getLeadByPhone(null); // We need to get by ID instead
   if (Object.keys(updates).length > 0) {
-    // For now, we'll update via the phone number stored in the lead
-    // This is a simplified approach - in production you'd pass the lead object
+    db.db.prepare(`UPDATE leads SET ${Object.keys(updates).map(k => `${k} = ?`).join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`)
+      .run(...Object.values(updates), leadId);
   }
 }
 
@@ -680,11 +688,17 @@ async function saveCallData(callSid, conversationManager) {
   if (call && call.lead_id) {
     const lead = db.getLeads().find(l => l.id === call.lead_id);
     if (lead) {
+      // 1. Notify Lyndon (the owner)
       await emailService.notifyNewLead(lead, {
         duration: Math.floor(history.duration / 1000),
         turns: history.turnCount,
         transcript: transcript
       });
+
+      // 2. If email was captured, send the setup link to the prospect
+      if (lead.email) {
+        await emailService.sendSetupLink(lead.email, lead.name || lead.company || 'there');
+      }
     }
   }
 

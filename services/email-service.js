@@ -127,6 +127,44 @@ ${callData.transcript}
   }
 
   /**
+   * Send setup link to prospect
+   */
+  async sendSetupLink(toEmail, name) {
+    const subject = `AI Always Answer - Your Setup Link! 🚀`;
+
+    const html = `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+        <h2 style="color: #2563eb;">Nice talking to you!</h2>
+        <p>Hi ${name},</p>
+        <p>As promised on the phone, here is the link to get your AI Always Answer receptionist set up.</p>
+        
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="https://buy.stripe.com/dRm4gzdiF6aqcykcfZ18c07" style="background-color: #2563eb; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 18px;">Get Started for $99/mo</a>
+        </div>
+
+        <p><strong>What happens next?</strong></p>
+        <ol>
+          <li>Click the link above to subscribe.</li>
+          <li>We'll build your custom AI persona (usually within 24 hours).</li>
+          <li>Your phones start working for you instead of against you.</li>
+        </ol>
+
+        <p>If you have any questions, just reply to this email.</p>
+        
+        <p>Best,<br><strong>Lyndon</strong><br>AI Always Answer</p>
+        
+        <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+        <p style="color: #999; font-size: 12px; text-align: center;">
+          We don't do voicemail. We do business.<br>
+          <a href="https://aialwaysanswer.com" style="color: #999;">aialwaysanswer.com</a>
+        </p>
+      </div>
+    `;
+
+    return await this.send(toEmail, subject, html);
+  }
+
+  /**
    * Send welcome email to new customer
    */
   async sendWelcomeEmail(customer) {
