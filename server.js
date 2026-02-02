@@ -8,6 +8,7 @@ const ConversationManager = require('./services/conversation-manager');
 const db = require('./services/database');
 const stripeService = require('./services/stripe-service');
 const emailService = require('./services/email-service');
+const calendarService = require('./services/google-calendar');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -106,14 +107,40 @@ app.post('/voice/process-speech', async (req, res) => {
 
     console.log('🤖 AI responds:', aiResponse);
 
-    // Add AI response to history
-    conversationManager.addMessage('assistant', aiResponse);
+    // Handle tool calls if any
+    let finalSpeechResponse = typeof aiResponse === 'string' ? aiResponse : aiResponse.content;
+
+    if (typeof aiResponse === 'object' && aiResponse.tool_calls) {
+      for (const toolCall of aiResponse.tool_calls) {
+        if (toolCall.function.name === 'book_appointment') {
+          try {
+            const args = JSON.parse(toolCall.function.arguments);
+            const bookingResult = await calendarService.bookAppointment(args);
+            
+            if (bookingResult.success) {
+              const confirmation = "Great news! I've scheduled that demo for you. You'll receive a calendar invite shortly. What else can I help you with?";
+              finalSpeechResponse = confirmation;
+              conversationManager.addMessage('assistant', confirmation);
+              
+              // Log the outcome in the DB
+              db.updateCall(callSid, { outcome: 'Appointment Booked' });
+            }
+          } catch (err) {
+            console.error('Tool execution error:', err);
+            finalSpeechResponse = "I attempted to book that appointment but encountered an error. I'll make sure Lyndon follows up with you directly instead. What else can I do for you?";
+          }
+        }
+      }
+    } else {
+      // Add regular AI response to history
+      conversationManager.addMessage('assistant', finalSpeechResponse);
+    }
 
     // Speak the AI response
     twiml.say({
       voice: 'Polly.Danielle-Neural',
       language: 'en-US'
-    }, aiResponse);
+    }, finalSpeechResponse);
 
     // Check if conversation should end
     if (conversationManager.shouldEndCall(aiResponse)) {

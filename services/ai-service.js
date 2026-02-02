@@ -4,9 +4,9 @@
  */
 class AIService {
   constructor() {
-    // this.provider = 'openai'; 
+    this.provider = 'openai'; 
     
-    this.provider = process.env.AI_PROVIDER || 'gemini';
+    // this.provider = process.env.AI_PROVIDER || 'gemini';
 
     // Only initialize the selected provider
     if (this.provider === 'openai') {
@@ -45,6 +45,31 @@ class AIService {
    * Get system prompt for the AI receptionist/sales agent
    */
   getSystemPrompt() {
+    const now = new Date();
+    const timeStr = now.toLocaleString('en-US', { timeZone: 'America/Chicago' });
+    
+    let basePrompt = `You are the high-end AI Sales Consultant for Widescope Industries.
+Current Time: ${timeStr}
+
+CORE OBJECTIVE:
+Sell the AI Receptionist service and BOOK APPOINTMENTS if the lead is interested.
+
+PERSONALITY:
+- Sharp, witty, and extremely professional.
+- You drive the conversation. No generic filler.
+- Confident but not arrogant.
+
+APPOINTMENT BOOKING:
+If the user wants a demo or to speak with Lyndon, use the 'book_appointment' tool.
+- You MUST ask for their Name, Email, and preferred Time.
+- Appointments usually last 30 minutes.
+- If they ask for availability, assume 9 AM - 5 PM CT business hours.
+
+PRICING:
+- $99/mo (Basic) vs $3000/mo for a human. It's a math problem.
+
+Keep responses concise (1-3 sentences).`;
+
     try {
       const fs = require('fs');
       const path = require('path');
@@ -52,44 +77,13 @@ class AIService {
       
       if (fs.existsSync(scriptPath)) {
         const scriptContent = fs.readFileSync(scriptPath, 'utf8');
-        return `You are the AI Sales Agent for AI Always Answer.
-You are a high-performance sales consultant.
-
-CORE INSTRUCTIONS:
-Use the following Sales Script as your primary knowledge base and personality guide. 
-Follow the phases, use the lines, and handle objections exactly as described in the script.
-
-${scriptContent}
-
-IMPORTANT OPERATIONAL RULES:
-- Keep responses concise (1-3 sentences max). Long monologues kill phone conversations.
-- Do NOT read the script titles or headers (like "Phase 1" or "The Confident Close"). Just say the lines.
-- Do NOT apologize for being AI. Own it.
-- If they give you their name, USE IT.
-- Always end your turn with a question or a call to action.`;
+        basePrompt += `\n\nUSE THIS SALES SCRIPT FOR SPECIFIC LINES AND OBJECTIONS:\n${scriptContent}`;
       }
     } catch (error) {
       console.error('Error reading CALL_SCRIPT.md:', error);
     }
 
-    // Fallback if file read fails
-    return `You are the AI Sales Agent for AI Always Answer.
-You are a high-performance sales consultant.
-
-CORE INSTRUCTIONS:
-- You are not just a receptionist; you are a high-performance sales consultant demonstrating your own value in real-time.
-- Sell the AI Receptionist service by demonstrating flawless execution.
-- Every interaction must prove that you are sharper, faster, and more cost-effective than a human.
-
-PERSONALITY & TONE:
-- **Confident & Professional:** You know you are the best solution. You speak with authority.
-- **Witty & Sharp:** You are not a generic robot. You have personality.
-- **Direct & No-Nonsense:** You do not use filler words like "I understand" or "That is a great question." You drive the conversation.
-
-IMPORTANT RULES:
-- Keep responses concise (1-3 sentences max).
-- Do NOT apologize for being AI. Own it.
-- Always end your turn with a question or a call to action.`;
+    return basePrompt;
   }
 
   /**
@@ -119,14 +113,46 @@ IMPORTANT RULES:
       ...conversationHistory
     ];
 
+    const tools = [
+      {
+        type: 'function',
+        function: {
+          name: 'book_appointment',
+          description: 'Book a demo appointment on the calendar',
+          parameters: {
+            type: 'object',
+            properties: {
+              summary: { type: 'string', description: 'Subject of the meeting' },
+              startTime: { type: 'string', description: 'ISO 8601 format start time (e.g. 2026-02-01T14:00:00Z)' },
+              endTime: { type: 'string', description: 'ISO 8601 format end time' },
+              attendeeEmail: { type: 'string', description: 'The leads email address' },
+              description: { type: 'string', description: 'Brief context about the lead' }
+            },
+            required: ['summary', 'startTime', 'endTime', 'attendeeEmail']
+          }
+        }
+      }
+    ];
+
     const response = await this.openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: 'gpt-4o',
       messages: messages,
+      tools: tools,
       temperature: 0.7,
       max_tokens: 150
     });
 
-    return response.choices[0].message.content;
+    const message = response.choices[0].message;
+    
+    if (message.tool_calls) {
+      return {
+        role: 'assistant',
+        content: message.content || "Let me get that booked for you right now.",
+        tool_calls: message.tool_calls
+      };
+    }
+
+    return message.content;
   }
 
   /**
