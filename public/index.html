@@ -1,721 +1,90 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI Receptionist - Never Miss a Business Call Again</title>
-  <meta name="description" content="24/7 AI-powered phone receptionist that answers calls, qualifies leads, and books appointments. Starting at $99/month.">
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    :root {
-      --primary: #2563eb;
-      --primary-dark: #1d4ed8;
-      --secondary: #10b981;
-      --dark: #1f2937;
-      --gray: #6b7280;
-      --light: #f3f4f6;
-      --white: #ffffff;
-    }
-
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-      line-height: 1.6;
-      color: var(--dark);
-    }
-
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 0 20px;
-    }
-
-    /* Header */
-    header {
-      background: var(--white);
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-      position: fixed;
-      width: 100%;
-      top: 0;
-      z-index: 100;
-    }
-
-    nav {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 15px 0;
-    }
-
-    .logo {
-      font-size: 24px;
-      font-weight: 700;
-      color: var(--primary);
-      text-decoration: none;
-    }
-
-    .nav-links {
-      display: flex;
-      gap: 30px;
-      align-items: center;
-    }
-
-    .nav-links a {
-      color: var(--gray);
-      text-decoration: none;
-      font-weight: 500;
-      transition: color 0.2s;
-    }
-
-    .nav-links a:hover {
-      color: var(--primary);
-    }
-
-    .btn {
-      display: inline-block;
-      padding: 12px 24px;
-      border-radius: 8px;
-      font-weight: 600;
-      text-decoration: none;
-      transition: all 0.2s;
-      cursor: pointer;
-      border: none;
-      font-size: 16px;
-    }
-
-    .btn-primary {
-      background: var(--primary);
-      color: var(--white);
-    }
-
-    .btn-primary:hover {
-      background: var(--primary-dark);
-    }
-
-    .btn-secondary {
-      background: var(--white);
-      color: var(--primary);
-      border: 2px solid var(--primary);
-    }
-
-    .btn-secondary:hover {
-      background: var(--primary);
-      color: var(--white);
-    }
-
-    .btn-large {
-      padding: 16px 32px;
-      font-size: 18px;
-    }
-
-    /* Hero */
-    .hero {
-      padding: 140px 0 80px;
-      background: linear-gradient(135deg, #eff6ff 0%, #ffffff 100%);
-    }
-
-    .hero-content {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 60px;
-      align-items: center;
-    }
-
-    .hero h1 {
-      font-size: 48px;
-      font-weight: 800;
-      line-height: 1.2;
-      margin-bottom: 20px;
-    }
-
-    .hero h1 span {
-      color: var(--primary);
-    }
-
-    .hero p {
-      font-size: 20px;
-      color: var(--gray);
-      margin-bottom: 30px;
-    }
-
-    .hero-cta {
-      display: flex;
-      gap: 15px;
-      align-items: center;
-    }
-
-    .demo-phone {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      background: var(--light);
-      padding: 15px 25px;
-      border-radius: 50px;
-      font-size: 18px;
-      font-weight: 600;
-    }
-
-    .demo-phone span {
-      color: var(--secondary);
-    }
-
-    .hero-image {
-      position: relative;
-    }
-
-    .hero-image img {
-      width: 100%;
-      border-radius: 20px;
-      box-shadow: 0 25px 50px rgba(0,0,0,0.15);
-    }
-
-    /* Features */
-    .features {
-      padding: 100px 0;
-    }
-
-    .section-header {
-      text-align: center;
-      margin-bottom: 60px;
-    }
-
-    .section-header h2 {
-      font-size: 36px;
-      font-weight: 700;
-      margin-bottom: 15px;
-    }
-
-    .section-header p {
-      font-size: 18px;
-      color: var(--gray);
-      max-width: 600px;
-      margin: 0 auto;
-    }
-
-    .features-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 40px;
-    }
-
-    .feature-card {
-      padding: 30px;
-      border-radius: 16px;
-      background: var(--white);
-      border: 1px solid var(--light);
-      transition: all 0.3s;
-    }
-
-    .feature-card:hover {
-      box-shadow: 0 10px 40px rgba(0,0,0,0.1);
-      transform: translateY(-5px);
-    }
-
-    .feature-icon {
-      width: 60px;
-      height: 60px;
-      background: linear-gradient(135deg, var(--primary), var(--secondary));
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 28px;
-      margin-bottom: 20px;
-    }
-
-    .feature-card h3 {
-      font-size: 20px;
-      margin-bottom: 10px;
-    }
-
-    .feature-card p {
-      color: var(--gray);
-    }
-
-    /* Pricing */
-    .pricing {
-      padding: 100px 0;
-      background: var(--light);
-    }
-
-    .pricing-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 30px;
-    }
-
-    .pricing-card {
-      background: var(--white);
-      border-radius: 20px;
-      padding: 40px;
-      position: relative;
-      border: 2px solid transparent;
-      transition: all 0.3s;
-    }
-
-    .pricing-card:hover {
-      border-color: var(--primary);
-    }
-
-    .pricing-card.popular {
-      border-color: var(--primary);
-      transform: scale(1.05);
-    }
-
-    .popular-badge {
-      position: absolute;
-      top: -15px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: var(--primary);
-      color: var(--white);
-      padding: 8px 20px;
-      border-radius: 20px;
-      font-size: 14px;
-      font-weight: 600;
-    }
-
-    .pricing-card h3 {
-      font-size: 24px;
-      margin-bottom: 10px;
-    }
-
-    .pricing-card .price {
-      font-size: 48px;
-      font-weight: 800;
-      margin-bottom: 5px;
-    }
-
-    .pricing-card .price span {
-      font-size: 18px;
-      font-weight: 400;
-      color: var(--gray);
-    }
-
-    .pricing-card .price-note {
-      color: var(--gray);
-      margin-bottom: 30px;
-    }
-
-    .pricing-features {
-      list-style: none;
-      margin-bottom: 30px;
-    }
-
-    .pricing-features li {
-      padding: 10px 0;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .pricing-features li::before {
-      content: "✓";
-      color: var(--secondary);
-      font-weight: 700;
-    }
-
-    .pricing-card .btn {
-      width: 100%;
-      text-align: center;
-    }
-
-    /* How it works */
-    .how-it-works {
-      padding: 100px 0;
-    }
-
-    .steps {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 30px;
-    }
-
-    .step {
-      text-align: center;
-    }
-
-    .step-number {
-      width: 60px;
-      height: 60px;
-      background: var(--primary);
-      color: var(--white);
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 24px;
-      font-weight: 700;
-      margin: 0 auto 20px;
-    }
-
-    .step h3 {
-      font-size: 18px;
-      margin-bottom: 10px;
-    }
-
-    .step p {
-      color: var(--gray);
-      font-size: 14px;
-    }
-
-    /* CTA */
-    .cta {
-      padding: 100px 0;
-      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
-      color: var(--white);
-      text-align: center;
-    }
-
-    .cta h2 {
-      font-size: 42px;
-      margin-bottom: 20px;
-    }
-
-    .cta p {
-      font-size: 20px;
-      opacity: 0.9;
-      margin-bottom: 30px;
-    }
-
-    .cta .btn-secondary {
-      background: var(--white);
-      color: var(--primary);
-      border-color: var(--white);
-    }
-
-    .cta .btn-secondary:hover {
-      background: transparent;
-      color: var(--white);
-    }
-
-    /* Footer */
-    footer {
-      background: var(--dark);
-      color: var(--white);
-      padding: 60px 0 30px;
-    }
-
-    .footer-content {
-      display: grid;
-      grid-template-columns: 2fr 1fr 1fr 1fr;
-      gap: 40px;
-      margin-bottom: 40px;
-    }
-
-    .footer-brand p {
-      color: #9ca3af;
-      margin-top: 15px;
-    }
-
-    footer h4 {
-      margin-bottom: 20px;
-    }
-
-    footer ul {
-      list-style: none;
-    }
-
-    footer ul li {
-      margin-bottom: 10px;
-    }
-
-    footer ul a {
-      color: #9ca3af;
-      text-decoration: none;
-      transition: color 0.2s;
-    }
-
-    footer ul a:hover {
-      color: var(--white);
-    }
-
-    .footer-bottom {
-      border-top: 1px solid #374151;
-      padding-top: 30px;
-      text-align: center;
-      color: #9ca3af;
-    }
-
-    /* Responsive */
-    @media (max-width: 968px) {
-      .hero-content {
-        grid-template-columns: 1fr;
-        text-align: center;
-      }
-
-      .hero h1 {
-        font-size: 36px;
-      }
-
-      .hero-cta {
-        justify-content: center;
-        flex-wrap: wrap;
-      }
-
-      .features-grid,
-      .pricing-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .steps {
-        grid-template-columns: repeat(2, 1fr);
-      }
-
-      .footer-content {
-        grid-template-columns: 1fr 1fr;
-      }
-
-      .pricing-card.popular {
-        transform: none;
-      }
-    }
-
-    @media (max-width: 480px) {
-      .nav-links {
-        display: none;
-      }
-
-      .steps {
-        grid-template-columns: 1fr;
-      }
-
-      .footer-content {
-        grid-template-columns: 1fr;
-      }
-    }
-  </style>
-</head>
-<body>
-  <header>
-    <nav class="container">
-      <a href="/" class="logo">AI Receptionist</a>
-      <div class="nav-links">
-        <a href="#features">Features</a>
-        <a href="#pricing">Pricing</a>
-        <a href="#how-it-works">How It Works</a>
-        <a href="/dashboard" class="btn btn-primary">Dashboard</a>
-      </div>
-    </nav>
-  </header>
-
-  <main>
-    <section class="hero">
-      <div class="container">
-        <div class="hero-content">
-          <div>
-            <h1>Never Miss a <span>Business Call</span> Again</h1>
-            <p>AI-powered phone receptionist that answers calls 24/7, qualifies leads, and books appointments - while you focus on running your business.</p>
-            <div class="hero-cta">
-              <a href="#pricing" class="btn btn-primary btn-large">Start Free Trial</a>
-              <div class="demo-phone">
-                <span>📞</span> Call to try: <strong id="demo-number">Loading...</strong>
-              </div>
+<!DOCTYPE html> <html class="scroll-smooth" lang="en"><head>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-RMF02ZX0XS"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-RMF02ZX0XS');
+    </script>
+    <meta charset="utf-8"/> <meta content="width=device-width, initial-scale=1.0" name="viewport"/> <title>AI Always Answer | Professional AI Receptionist</title> <link href="https://fonts.googleapis.com" rel="preconnect"/> <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/> <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=Plus+Jakarta+Sans:wght@700;800&amp;display=swap" rel="stylesheet"/> <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet"/> <script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script> <script> tailwind.config = { darkMode: "class", theme: { extend: { colors: { primary: "#2563eb", "background-light": "#ffffff", "background-dark": "#0f172a", "surface-dark": "#1e293b", "accent-neon": "#38bdf8", }, fontFamily: { display: ["Plus Jakarta Sans", "sans-serif"], sans: ["Inter", "sans-serif"], }, borderRadius: { DEFAULT: "0.75rem", "xl": "1.5rem", }, }, }, }; </script> <style> .glass-card { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); } .glow-text { text-shadow: 0 0 20px rgba(56, 189, 248, 0.5); } .ai-column-glow { box-shadow: 0 0 40px -10px rgba(37, 99, 235, 0.2); } </style> </head> <body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 font-sans transition-colors duration-300"> <header class="relative overflow-hidden pt-24 pb-20 px-4 bg-background-dark text-white"> <div class="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full pointer-events-none opacity-20"> <div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary rounded-full blur-[120px]"></div> <div class="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-accent-neon rounded-full blur-[120px]"></div> </div> <nav class="absolute top-0 left-0 right-0 p-6 flex justify-between items-center max-w-7xl mx-auto z-10"> <div class="flex items-center space-x-2"> <div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center"> <span class="material-symbols-outlined text-white text-xl">smart_toy</span> </div> <span class="font-display font-bold text-xl tracking-tight">AI Always Answer</span> </div> <div class="hidden md:flex space-x-8 text-sm font-medium text-slate-300"> <a class="hover:text-white transition-colors" href="#how-it-works">How It Works</a> <a class="hover:text-white transition-colors" href="#comparison">Comparison</a> <a class="hover:text-white transition-colors" href="#pricing">Pricing</a> </div> <button class="bg-primary hover:bg-blue-700 text-white px-5 py-2.5 rounded-full font-semibold text-sm transition-all transform hover:scale-105"> Login </button> </nav> <div class="relative max-w-4xl mx-auto text-center z-10 mt-12"> <h1 class="font-display text-5xl md:text-7xl font-extrabold mb-6 tracking-tight leading-[1.1]"> Stop Missing Money. </h1> <p class="text-xl md:text-2xl text-slate-400 max-w-2xl mx-auto mb-12 leading-relaxed"> Every missed call is a lead gifted to your competitor. Our AI Receptionist answers 24/7, books appointments, and closes deals. </p> <div class="glass-card max-w-md mx-auto p-8 rounded-xl mb-10 transform hover:scale-[1.02] transition-transform"> <p class="text-xs uppercase tracking-widest text-slate-500 font-bold mb-3">Call the live demo</p> <a class="text-4xl md:text-5xl font-display font-extrabold text-yellow-400 glow-text tracking-tighter" href="tel:8175338424"> (817) 533-8424 </a> </div> <div class="flex flex-col items-center gap-4"> <button class="bg-primary hover:bg-blue-700 text-white px-10 py-5 rounded-xl font-bold text-xl shadow-lg shadow-blue-500/20 transition-all transform hover:-translate-y-1"> Get Started - $99/mo </button> <p class="text-sm text-slate-500">No contracts. 14-day money-back guarantee.</p> </div> </div> </header> <section class="py-24 px-4 bg-background-light dark:bg-[#0f172a]" id="comparison"> <div class="max-w-6xl mx-auto"> <h2 class="font-display text-4xl font-bold text-center mb-16 dark:text-white">The Math is Simple.</h2> <div class="overflow-x-auto"> <div class="min-w-[800px] glass-card dark:border-slate-800 rounded-2xl p-1 bg-white dark:bg-slate-900/50 shadow-2xl"> <table class="w-full text-left"> <thead> <tr class="text-slate-500 dark:text-slate-400 text-sm uppercase tracking-wider font-bold"> <th class="p-6">Feature</th> <th class="p-6">Human Receptionist</th> <th class="p-6">Answering Service</th> <th class="p-6 bg-blue-600/10 dark:bg-blue-600/20 text-primary rounded-t-xl">AI Always Answer</th> </tr> </thead> <tbody class="divide-y divide-slate-100 dark:divide-slate-800"> <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"> <td class="p-6 font-semibold">Cost</td> <td class="p-6">$3,000 / mo</td> <td class="p-6">$300 / mo</td> <td class="p-6 bg-blue-600/10 dark:bg-blue-600/20 text-primary font-bold"> $99 / mo</td> </tr> <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"> <td class="p-6 font-semibold">Availability</td> <td class="p-6 text-slate-600 dark:text-slate-400">9am - 5pm</td> <td class="p-6 text-slate-600 dark:text-slate-400">24/7 (Usually)</td> <td class="p-6 bg-blue-600/10 dark:bg-blue-600/20 text-primary font-bold">24/7 (Always)</td> </tr> <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"> <td class="p-6 font-semibold">Sick Days</td> <td class="p-6 text-red-500 font-medium">Yes</td> <td class="p-6 text-orange-400 font-medium">Maybe</td> <td class="p-6 bg-blue-600/10 dark:bg-blue-600/20 text-emerald-500 font-bold">Never</td> </tr> <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"> <td class="p-6 font-semibold">Missed Calls</td> <td class="p-6 text-red-500 font-medium">When busy</td> <td class="p-6 text-orange-400 font-medium">Long hold times</td> <td class="p-6 bg-blue-600/10 dark:bg-blue-600/20 text-emerald-500 font-bold">Zero</td> </tr> <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"> <td class="p-6 font-semibold">Instant SMS</td> <td class="p-6 text-red-500 font-medium">No</td> <td class="p-6 text-red-500 font-medium">No</td> <td class="p-6 bg-blue-600/10 dark:bg-blue-600/20 text-emerald-500 font-bold rounded-b-xl">Yes</td> </tr> </tbody> </table> </div> </div> </div> </section> <section class="py-24 px-4 bg-slate-50 dark:bg-background-dark/50" id="how-it-works"> <div class="max-w-6xl mx-auto"> <h2 class="font-display text-4xl font-bold text-center mb-16 dark:text-white">How It Works</h2> <div class="grid md:grid-cols-3 gap-8"> <div class="bg-white dark:bg-surface-dark p-8 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col items-center text-center group hover:shadow-xl transition-shadow"> <div class="w-16 h-16 bg-blue-50 dark:bg-blue-900/30 rounded-xl flex items-center justify-center mb-6 group-hover:bg-primary transition-colors"> <span class="material-symbols-outlined text-primary group-hover:text-white text-3xl">add_call</span> </div> <h3 class="font-display text-xl font-bold mb-4 dark:text-white">1. Get Your Number</h3> <p class="text-slate-600 dark:text-slate-400 leading-relaxed"> We provide a dedicated local number (817, 214, 512, etc) or port your existing one. </p> </div> <div class="bg-white dark:bg-surface-dark p-8 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col items-center text-center group hover:shadow-xl transition-shadow"> <div class="w-16 h-16 bg-blue-50 dark:bg-blue-900/30 rounded-xl flex items-center justify-center mb-6 group-hover:bg-primary transition-colors"> <span class="material-symbols-outlined text-primary group-hover:text-white text-3xl">psychology</span> </div> <h3 class="font-display text-xl font-bold mb-4 dark:text-white">2. AI Answers Instantly</h3> <p class="text-slate-600 dark:text-slate-400 leading-relaxed"> It sounds human, knows your pricing, and follows your custom instructions perfectly. </p> </div> <div class="bg-white dark:bg-surface-dark p-8 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col items-center text-center group hover:shadow-xl transition-shadow"> <div class="w-16 h-16 bg-blue-50 dark:bg-blue-900/30 rounded-xl flex items-center justify-center mb-6 group-hover:bg-primary transition-colors"> <span class="material-symbols-outlined text-primary group-hover:text-white text-3xl">calendar_month</span> </div> <h3 class="font-display text-xl font-bold mb-4 dark:text-white">3. Appointments Booked</h3> <p class="text-slate-600 dark:text-slate-400 leading-relaxed"> The AI schedules jobs directly on your calendar and texts you the lead details immediately. </p> </div> </div> </div> </section> <section class="py-32 px-4 bg-background-dark text-white relative" id="pricing">
+    <div class="absolute inset-0 bg-grid-slate-900/[0.04] bg-[bottom_left] dark:bg-grid-slate-400/[0.05] pointer-events-none"></div>
+    <div class="relative max-w-6xl mx-auto">
+        <div class="grid md:grid-cols-2 gap-12 items-center">
+            <!-- Pricing Card -->
+            <div class="max-w-md mx-auto bg-white dark:bg-surface-dark text-slate-900 dark:text-white rounded-[2rem] p-10 shadow-2xl relative order-2 md:order-1">
+                <div class="absolute -top-4 left-1/2 -translate-x-1/2 bg-primary text-white text-xs font-bold px-4 py-1.5 rounded-full uppercase tracking-widest"> Best Value </div>
+                <h3 class="text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider text-sm mb-6">Standard Plan</h3>
+                <div class="flex items-end justify-center mb-8">
+                    <span class="text-6xl font-display font-black text-primary">$99</span>
+                    <span class="text-slate-400 font-semibold mb-2 ml-2">/mo</span>
+                </div>
+                <ul class="text-left space-y-5 mb-10">
+                    <li class="flex items-center space-x-3 text-slate-700 dark:text-slate-300">
+                        <span class="material-symbols-outlined text-emerald-500 font-bold">check_circle</span> <span>500 Minutes Included</span>
+                    </li>
+                    <li class="flex items-center space-x-3 text-slate-700 dark:text-slate-300">
+                        <span class="material-symbols-outlined text-emerald-500 font-bold">check_circle</span> <span>24/7 Availability</span>
+                    </li>
+                    <li class="flex items-center space-x-3 text-slate-700 dark:text-slate-300">
+                        <span class="material-symbols-outlined text-emerald-500 font-bold">check_circle</span> <span>Appointment Booking</span>
+                    </li>
+                </ul>
+                <a href="https://buy.stripe.com/dRm4gzdiF6aqcykcfZ18c07" class="w-full block bg-primary hover:bg-blue-700 text-white font-bold py-5 rounded-2xl shadow-lg shadow-blue-500/20 transition-all transform hover:scale-[1.02] text-center"> Subscribe Now </a>
             </div>
-          </div>
-          <div class="hero-image">
-            <svg viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg">
-              <rect fill="#f3f4f6" width="400" height="300" rx="20"/>
-              <rect x="50" y="40" width="300" height="200" fill="white" rx="10"/>
-              <circle cx="200" cy="100" r="30" fill="#2563eb"/>
-              <text x="200" y="108" text-anchor="middle" fill="white" font-size="24">AI</text>
-              <rect x="100" y="150" width="200" height="15" fill="#e5e7eb" rx="5"/>
-              <rect x="100" y="150" width="140" height="15" fill="#10b981" rx="5"/>
-              <text x="200" y="200" text-anchor="middle" fill="#6b7280" font-size="12">Handling your calls 24/7</text>
-              <circle cx="80" cy="260" r="8" fill="#10b981"/>
-              <text x="95" y="264" fill="#374151" font-size="10">Active</text>
-              <text x="280" y="264" fill="#6b7280" font-size="10">142 calls today</text>
-            </svg>
-          </div>
-        </div>
-      </div>
-    </section>
 
-    <section class="features" id="features">
-      <div class="container">
-        <div class="section-header">
-          <h2>Everything Your Business Needs</h2>
-          <p>Stop missing calls, losing leads, and paying for expensive receptionists</p>
+            <!-- Lead Capture Form -->
+            <div class="text-left order-1 md:order-2">
+                <h2 class="font-display text-4xl font-bold mb-6">Want a Custom Demo?</h2>
+                <p class="text-slate-400 mb-8 text-lg">Leave your details and we'll build a custom AI persona for your business within 24 hours.</p>
+                <form class="space-y-4" id="demo-form">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-300 mb-2">Business Name</label>
+                        <input type="text" name="company" class="w-full bg-slate-800 border-slate-700 rounded-xl px-4 py-3 focus:ring-primary focus:border-primary text-white" placeholder="e.g. Fort Worth Plumbing" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-300 mb-2">Email Address</label>
+                        <input type="email" name="email" class="w-full bg-slate-800 border-slate-700 rounded-xl px-4 py-3 focus:ring-primary focus:border-primary text-white" placeholder="you@company.com" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-300 mb-2">Phone Number</label>
+                        <input type="tel" name="phone" class="w-full bg-slate-800 border-slate-700 rounded-xl px-4 py-3 focus:ring-primary focus:border-primary text-white" placeholder="(817) 000-0000" required>
+                    </div>
+                    <button type="submit" id="demo-submit" class="w-full bg-accent-neon hover:bg-blue-400 text-slate-900 font-bold py-4 rounded-xl transition-all"> Get My Custom Demo </button>
+                </form>
+                <script>
+                    document.getElementById('demo-form').addEventListener('submit', async (e) => {
+                        e.preventDefault();
+                        const btn = document.getElementById('demo-submit');
+                        btn.disabled = true;
+                        btn.textContent = 'Sending...';
+                        
+                        const formData = new FormData(e.target);
+                        const data = Object.fromEntries(formData.entries());
+                        
+                        try {
+                            const response = await fetch('/api/leads', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(data)
+                            });
+                            
+                            if (response.ok) {
+                                alert('Success! We will contact you shortly with your custom demo.');
+                                e.target.reset();
+                            } else {
+                                throw new Error('Failed to submit');
+                            }
+                        } catch (err) {
+                            alert('Something went wrong. Please call us directly at (817) 533-8424.');
+                        } finally {
+                            btn.disabled = false;
+                            btn.textContent = 'Get My Custom Demo';
+                        }
+                    });
+                </script>
+            </div>
         </div>
-        <div class="features-grid">
-          <div class="feature-card">
-            <div class="feature-icon">📞</div>
-            <h3>24/7 Availability</h3>
-            <p>Never miss a call - your AI receptionist answers every time, even at 3 AM on holidays.</p>
-          </div>
-          <div class="feature-card">
-            <div class="feature-icon">🎯</div>
-            <h3>Lead Qualification</h3>
-            <p>Automatically qualify leads, collect contact info, and score prospects before they reach you.</p>
-          </div>
-          <div class="feature-card">
-            <div class="feature-icon">📅</div>
-            <h3>Appointment Booking</h3>
-            <p>Integrates with your calendar to book appointments and send confirmations automatically.</p>
-          </div>
-          <div class="feature-card">
-            <div class="feature-icon">💬</div>
-            <h3>Natural Conversations</h3>
-            <p>Powered by advanced AI that sounds human and handles complex questions with ease.</p>
-          </div>
-          <div class="feature-card">
-            <div class="feature-icon">📊</div>
-            <h3>Call Analytics</h3>
-            <p>Full transcripts, recordings, and insights on every call to improve your business.</p>
-          </div>
-          <div class="feature-card">
-            <div class="feature-icon">🔗</div>
-            <h3>CRM Integration</h3>
-            <p>Syncs with HubSpot, Salesforce, and more to keep your pipeline updated automatically.</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="pricing" id="pricing">
-      <div class="container">
-        <div class="section-header">
-          <h2>Simple, Transparent Pricing</h2>
-          <p>No hidden fees. Cancel anytime. Start with a 14-day free trial.</p>
-        </div>
-        <div class="pricing-grid">
-          <div class="pricing-card">
-            <h3>Basic</h3>
-            <div class="price">$99<span>/month</span></div>
-            <p class="price-note">Perfect for small businesses</p>
-            <ul class="pricing-features">
-              <li>500 minutes/month</li>
-              <li>Basic AI receptionist</li>
-              <li>Call transcripts</li>
-              <li>Email notifications</li>
-              <li>Business hours support</li>
-            </ul>
-            <a href="/checkout?plan=basic" class="btn btn-secondary">Start Free Trial</a>
-          </div>
-          <div class="pricing-card popular">
-            <span class="popular-badge">Most Popular</span>
-            <h3>Pro</h3>
-            <div class="price">$299<span>/month</span></div>
-            <p class="price-note">For growing businesses</p>
-            <ul class="pricing-features">
-              <li>2,000 minutes/month</li>
-              <li>Advanced AI with memory</li>
-              <li>CRM integration</li>
-              <li>Custom voice & personality</li>
-              <li>24/7 availability</li>
-              <li>Priority support</li>
-            </ul>
-            <a href="/checkout?plan=pro" class="btn btn-primary">Start Free Trial</a>
-          </div>
-          <div class="pricing-card">
-            <h3>Enterprise</h3>
-            <div class="price">Custom</div>
-            <p class="price-note">For large organizations</p>
-            <ul class="pricing-features">
-              <li>Unlimited minutes</li>
-              <li>Multiple phone lines</li>
-              <li>Custom integrations</li>
-              <li>Dedicated support</li>
-              <li>White-label option</li>
-              <li>SLA guarantee</li>
-            </ul>
-            <a href="/contact" class="btn btn-secondary">Contact Sales</a>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="how-it-works" id="how-it-works">
-      <div class="container">
-        <div class="section-header">
-          <h2>Up and Running in Minutes</h2>
-          <p>Getting started is easy - no technical expertise required</p>
-        </div>
-        <div class="steps">
-          <div class="step">
-            <div class="step-number">1</div>
-            <h3>Sign Up</h3>
-            <p>Create your account and choose a plan that fits your needs</p>
-          </div>
-          <div class="step">
-            <div class="step-number">2</div>
-            <h3>Configure</h3>
-            <p>Tell us about your business so the AI knows how to represent you</p>
-          </div>
-          <div class="step">
-            <div class="step-number">3</div>
-            <h3>Connect</h3>
-            <p>Get a new number or forward your existing one to your AI</p>
-          </div>
-          <div class="step">
-            <div class="step-number">4</div>
-            <h3>Go Live</h3>
-            <p>Start receiving calls handled professionally 24/7</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="cta">
-      <div class="container">
-        <h2>Ready to Transform Your Business?</h2>
-        <p>Join thousands of businesses that never miss a call</p>
-        <a href="#pricing" class="btn btn-secondary btn-large">Start Your Free Trial</a>
-      </div>
-    </section>
-  </main>
-
-  <footer>
-    <div class="container">
-      <div class="footer-content">
-        <div class="footer-brand">
-          <a href="/" class="logo">AI Receptionist</a>
-          <p>The smartest way to handle your business calls. Powered by advanced AI technology.</p>
-        </div>
-        <div>
-          <h4>Product</h4>
-          <ul>
-            <li><a href="#features">Features</a></li>
-            <li><a href="#pricing">Pricing</a></li>
-            <li><a href="/demo">Live Demo</a></li>
-          </ul>
-        </div>
-        <div>
-          <h4>Company</h4>
-          <ul>
-            <li><a href="/about">About</a></li>
-            <li><a href="/contact">Contact</a></li>
-            <li><a href="/careers">Careers</a></li>
-          </ul>
-        </div>
-        <div>
-          <h4>Legal</h4>
-          <ul>
-            <li><a href="/privacy">Privacy Policy</a></li>
-            <li><a href="/terms">Terms of Service</a></li>
-          </ul>
-        </div>
-      </div>
-      <div class="footer-bottom">
-        <p>&copy; 2026 AI Receptionist. All rights reserved.</p>
-      </div>
     </div>
-  </footer>
-
-  <script>
-    // Fetch and display demo number
-    fetch('/api/demo-number')
-      .then(res => res.json())
-      .then(data => {
-        document.getElementById('demo-number').textContent = data.number || 'Coming Soon';
-      })
-      .catch(() => {
-        document.getElementById('demo-number').textContent = 'Call for Demo';
-      });
-  </script>
-</body>
-</html>
+</section> <footer class="py-20 px-4 bg-background-light dark:bg-background-dark border-t border-slate-100 dark:border-slate-800">    <div class="max-w-6xl mx-auto text-center"> <div class="flex items-center justify-center space-x-2 mb-6"> <div class="w-6 h-6 bg-primary rounded flex items-center justify-center"> <span class="material-symbols-outlined text-white text-xs">smart_toy</span> </div> <span class="font-display font-bold text-lg dark:text-white">AI Always Answer</span> </div> <p class="text-slate-400 dark:text-slate-500 mb-8 font-medium"> We don't do voicemail. We do business. </p> <div class="flex justify-center space-x-6 text-sm text-slate-400 dark:text-slate-500"> <a class="hover:text-primary transition-colors" href="#">Privacy Policy</a> <span>|</span> <a class="hover:text-primary transition-colors" href="#">Terms of Service</a> </div> <p class="mt-12 text-slate-400 text-xs"> © 2024 AI Always Answer. All rights reserved. </p> </div> </footer> <script> // Check for saved theme preference, otherwise use dark as default if (localStorage.theme === 'light') { document.documentElement.classList.remove('dark') } else { document.documentElement.classList.add('dark') } </script> </body></html>

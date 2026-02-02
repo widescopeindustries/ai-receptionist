@@ -8,6 +8,7 @@ const ConversationManager = require('./services/conversation-manager');
 const db = require('./services/database');
 const stripeService = require('./services/stripe-service');
 const emailService = require('./services/email-service');
+const calendarService = require('./services/google-calendar');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -16,11 +17,37 @@ const PORT = process.env.PORT || 3000;
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 
+// Explicit SEO routes
+app.get('/robots.txt', (req, res) => {
+  res.type('text/plain');
+  res.sendFile(path.join(__dirname, 'public', 'robots.txt'));
+});
+
+app.get('/sitemap.xml', (req, res) => {
+  res.type('application/xml');
+  res.sendFile(path.join(__dirname, 'public', 'sitemap.xml'));
+});
+
+/**
+ * Status endpoint - simple text health check
+ */
+app.get('/status', (req, res) => {
+  res.send('AI Always Answer is active and ready to close! 🚀');
+});
+
+/**
+ * Utility to strip emojis from text so they aren't read out loud by TTS
+ */
+function cleanTextForTTS(text) {
+  if (!text) return "";
+  return text.replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g, '');
+}
+
 // Raw body for Stripe webhooks (must come before urlencoded)
 app.use('/webhooks/stripe', express.raw({ type: 'application/json' }));
 app.use(express.urlencoded({ extended: false }));
 
-// Store active conversations (in production, use Redis)
+// Store active conversations
 const conversations = new Map();
 
 // Initialize AI Service
@@ -49,7 +76,7 @@ app.post('/voice/incoming', async (req, res) => {
   conversations.set(callSid, conversationManager);
 
   // Greet the caller
-  const greeting = "Widescope Industries. I don't do voicemail, I do business. Who am I speaking with?";
+  const greeting = "AI Always Answer. I don't do voicemail, I do business. Who am I speaking with?";
 
   twiml.say({
     voice: 'Polly.Danielle-Neural',
@@ -86,17 +113,23 @@ app.post('/voice/process-speech', async (req, res) => {
   console.log('🗣️  Caller said:', userSpeech);
 
   try {
-    const conversationManager = conversations.get(callSid);
+    let conversationManager = conversations.get(callSid);
 
     if (!conversationManager) {
-      throw new Error('Conversation not found');
+      console.log(`⚠️ Conversation ${callSid} not found, initializing new session.`);
+      conversationManager = new ConversationManager(callSid);
+      conversations.set(callSid, conversationManager);
     }
 
     // Add user message to history
-    conversationManager.addMessage('user', userSpeech);
-
-    // Extract lead info from speech (name, email, company mentions)
-    extractLeadInfo(userSpeech, conversationManager.leadId);
+    if (userSpeech) {
+      conversationManager.addMessage('user', userSpeech);
+      // Extract lead info from speech
+      extractLeadInfo(userSpeech, conversationManager.leadId);
+    } else {
+      twiml.redirect('/voice/no-input');
+      return res.send(twiml.toString());
+    }
 
     // Get AI response
     const aiResponse = await aiService.getResponse(
@@ -106,17 +139,44 @@ app.post('/voice/process-speech', async (req, res) => {
 
     console.log('🤖 AI responds:', aiResponse);
 
-    // Add AI response to history
-    conversationManager.addMessage('assistant', aiResponse);
+    // Handle tool calls if any
+    let finalSpeechResponse = typeof aiResponse === 'string' ? aiResponse : aiResponse.content;
+
+    if (typeof aiResponse === 'object' && aiResponse.tool_calls) {
+      for (const toolCall of aiResponse.tool_calls) {
+        if (toolCall.function.name === 'book_appointment') {
+          try {
+            const args = JSON.parse(toolCall.function.arguments);
+            const bookingResult = await calendarService.bookAppointment(args);
+            
+            if (bookingResult.success) {
+              const confirmation = "Great news! I've scheduled that demo for you. You'll receive a calendar invite shortly. What else can I help you with?";
+              finalSpeechResponse = confirmation;
+              conversationManager.addMessage('assistant', confirmation);
+              
+              // Log the outcome in the DB
+              db.updateCall(callSid, { outcome: 'Appointment Booked' });
+            }
+          } catch (err) {
+            console.error('Tool execution error:', err);
+            finalSpeechResponse = "I attempted to book that appointment but encountered an error. I'll make sure Lyndon follows up with you directly instead. What else can I do for you?";
+          }
+        }
+      }
+    } else {
+      // Clean emojis for TTS
+      finalSpeechResponse = cleanTextForTTS(finalSpeechResponse);
+      conversationManager.addMessage('assistant', finalSpeechResponse);
+    }
 
     // Speak the AI response
     twiml.say({
       voice: 'Polly.Danielle-Neural',
       language: 'en-US'
-    }, aiResponse);
+    }, finalSpeechResponse);
 
     // Check if conversation should end
-    if (conversationManager.shouldEndCall(aiResponse)) {
+    if (conversationManager.shouldEndCall(finalSpeechResponse)) {
       twiml.say({
         voice: 'Polly.Danielle-Neural',
         language: 'en-US'
@@ -145,15 +205,9 @@ app.post('/voice/process-speech', async (req, res) => {
     twiml.say({
       voice: 'Polly.Danielle-Neural',
       language: 'en-US'
-    }, 'I apologize, I\'m having trouble understanding. Could you please repeat that?');
+    }, 'I apologize, I\'m having trouble understanding. Let\'s get back to business.');
 
-    twiml.gather({
-      input: 'speech',
-      action: '/voice/process-speech',
-      speechTimeout: 'auto',
-      speechModel: 'phone_call',
-      enhanced: true
-    });
+    twiml.redirect('/voice/incoming');
   }
 
   res.type('text/xml');
@@ -169,7 +223,7 @@ app.post('/voice/no-input', (req, res) => {
   twiml.say({
     voice: 'Polly.Danielle-Neural',
     language: 'en-US'
-  }, 'Are you still there? How can I help you?');
+  }, 'Are you still there? I\'m ready to help whenever you are!');
 
   twiml.gather({
     input: 'speech',
@@ -178,11 +232,6 @@ app.post('/voice/no-input', (req, res) => {
     speechModel: 'phone_call',
     enhanced: true
   });
-
-  twiml.say({
-    voice: 'Polly.Danielle-Neural',
-    language: 'en-US'
-  }, 'If you need assistance, please say something or press any key.');
 
   twiml.hangup();
 
@@ -526,27 +575,27 @@ app.get('/dashboard', (req, res) => {
             document.getElementById('active-customers').textContent = data.activeCustomers;
 
             // Render leads
-            const leadsHtml = data.recentLeads.map(lead => \`
+            const leadsHtml = data.recentLeads.map(lead => `
               <tr>
-                <td>\${lead.phone}</td>
-                <td>\${lead.name || '-'}</td>
-                <td>\${lead.company || '-'}</td>
-                <td><span class="status status-\${lead.status}">\${lead.status}</span></td>
-                <td>\${new Date(lead.created_at).toLocaleDateString()}</td>
+                <td>${lead.phone}</td>
+                <td>${lead.name || '-'}</td>
+                <td>${lead.company || '-'}</td>
+                <td><span class="status status-${lead.status}">${lead.status}</span></td>
+                <td>${new Date(lead.created_at).toLocaleDateString()}</td>
               </tr>
-            \`).join('') || '<tr><td colspan="5">No leads yet</td></tr>';
+            `).join('') || '<tr><td colspan="5">No leads yet</td></tr>';
             document.getElementById('leads-table').innerHTML = leadsHtml;
 
             // Render calls
-            const callsHtml = data.recentCalls.map(call => \`
+            const callsHtml = data.recentCalls.map(call => `
               <tr>
-                <td>\${call.phone || call.phone_from}</td>
-                <td>\${call.duration_seconds || 0}s</td>
-                <td>\${call.turn_count || 0}</td>
-                <td>\${call.outcome || '-'}</td>
-                <td>\${new Date(call.created_at).toLocaleDateString()}</td>
+                <td>${call.phone || call.phone_from}</td>
+                <td>${call.duration_seconds || 0}s</td>
+                <td>${call.turn_count || 0}</td>
+                <td>${call.outcome || '-'}</td>
+                <td>${new Date(call.created_at).toLocaleDateString()}</td>
               </tr>
-            \`).join('') || '<tr><td colspan="5">No calls yet</td></tr>';
+            `).join('') || '<tr><td colspan="5">No calls yet</td></tr>';
             document.getElementById('calls-table').innerHTML = callsHtml;
           } catch (err) {
             console.error('Failed to load stats:', err);
@@ -614,10 +663,10 @@ function extractLeadInfo(speech, leadId) {
 
   // Extract name (look for "my name is", "I'm", "this is")
   const namePatterns = [
-    /my name is (\w+)/i,
-    /i'm (\w+)/i,
-    /this is (\w+)/i,
-    /call me (\w+)/i
+    /my name is ([a-z]+)/i,
+    /i'm ([a-z]+)/i,
+    /this is ([a-z]+)/i,
+    /call me ([a-z]+)/i
   ];
 
   for (const pattern of namePatterns) {
@@ -642,6 +691,13 @@ function extractLeadInfo(speech, leadId) {
     }
   }
 
+  // Extract email addresses
+  const emailPattern = /([a-zA-Z0-9._%+-]+\s*@\s*[a-zA-Z0-9.-]+\s*\.\s*[a-zA-Z]{2,4})/i;
+  const emailMatch = speech.match(emailPattern);
+  if (emailMatch) {
+    updates.email = emailMatch[1].replace(/\s+/g, ''); // Remove spaces
+  }
+
   // Detect interest level based on keywords
   if (speechLower.includes('pricing') || speechLower.includes('how much') || speechLower.includes('cost')) {
     updates.interest_level = 'high';
@@ -650,10 +706,9 @@ function extractLeadInfo(speech, leadId) {
   }
 
   // Update lead in database
-  const lead = db.getLeadByPhone(null); // We need to get by ID instead
   if (Object.keys(updates).length > 0) {
-    // For now, we'll update via the phone number stored in the lead
-    // This is a simplified approach - in production you'd pass the lead object
+    db.db.prepare(`UPDATE leads SET ${Object.keys(updates).map(k => `${k} = ?`).join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`)
+      .run(...Object.values(updates), leadId);
   }
 }
 
@@ -680,11 +735,17 @@ async function saveCallData(callSid, conversationManager) {
   if (call && call.lead_id) {
     const lead = db.getLeads().find(l => l.id === call.lead_id);
     if (lead) {
+      // 1. Notify Lyndon (the owner)
       await emailService.notifyNewLead(lead, {
         duration: Math.floor(history.duration / 1000),
         turns: history.turnCount,
         transcript: transcript
       });
+
+      // 2. If email was captured, send the setup link to the prospect
+      if (lead.email) {
+        await emailService.sendSetupLink(lead.email, lead.name || lead.company || 'there');
+      }
     }
   }
 
@@ -692,7 +753,7 @@ async function saveCallData(callSid, conversationManager) {
 }
 
 // Start server
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 AI Receptionist server running on port ${PORT}`);
   console.log(`📱 Webhook URL: ${process.env.BASE_URL || `http://localhost:${PORT}`}/voice/incoming`);
   console.log(`🌐 Landing page: ${process.env.BASE_URL || `http://localhost:${PORT}`}`);

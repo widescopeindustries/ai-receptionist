@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /onboarding
+Disallow: /checkout
+Disallow: /api/
+
+Sitemap: https://aialwaysanswer.com/sitemap.xml
