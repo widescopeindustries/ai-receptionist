@@ -20,7 +20,7 @@ app.get('/robots.txt', (req, res) => {
 });
 
 app.get('/sitemap.xml', (req, res) => {
-  res.type('application/xml');
+  res.setHeader('Content-Type', 'application/xml; charset=utf-8');
   res.sendFile(path.join(__dirname, 'public', 'sitemap.xml'));
 });
 
@@ -575,27 +575,27 @@ app.get('/dashboard', (req, res) => {
             document.getElementById('active-customers').textContent = data.activeCustomers;
 
             // Render leads
-            const leadsHtml = data.recentLeads.map(lead => `
+            const leadsHtml = data.recentLeads.map(lead => \`
               <tr>
-                <td>${lead.phone}</td>
-                <td>${lead.name || '-'}</td>
-                <td>${lead.company || '-'}</td>
-                <td><span class="status status-${lead.status}">${lead.status}</span></td>
-                <td>${new Date(lead.created_at).toLocaleDateString()}</td>
+                <td>\${lead.phone}</td>
+                <td>\${lead.name || '-'}</td>
+                <td>\${lead.company || '-'}</td>
+                <td><span class="status status-\${lead.status}">\${lead.status}</span></td>
+                <td>\${new Date(lead.created_at).toLocaleDateString()}</td>
               </tr>
-            `).join('') || '<tr><td colspan="5">No leads yet</td></tr>';
+            \`).join('') || '<tr><td colspan="5">No leads yet</td></tr>';
             document.getElementById('leads-table').innerHTML = leadsHtml;
 
             // Render calls
-            const callsHtml = data.recentCalls.map(call => `
+            const callsHtml = data.recentCalls.map(call => \`
               <tr>
-                <td>${call.phone || call.phone_from}</td>
-                <td>${call.duration_seconds || 0}s</td>
-                <td>${call.turn_count || 0}</td>
-                <td>${call.outcome || '-'}</td>
-                <td>${new Date(call.created_at).toLocaleDateString()}</td>
+                <td>\${call.phone || call.phone_from}</td>
+                <td>\${call.duration_seconds || 0}s</td>
+                <td>\${call.turn_count || 0}</td>
+                <td>\${call.outcome || '-'}</td>
+                <td>\${new Date(call.created_at).toLocaleDateString()}</td>
               </tr>
-            `).join('') || '<tr><td colspan="5">No calls yet</td></tr>';
+            \`).join('') || '<tr><td colspan="5">No calls yet</td></tr>';
             document.getElementById('calls-table').innerHTML = callsHtml;
           } catch (err) {
             console.error('Failed to load stats:', err);
