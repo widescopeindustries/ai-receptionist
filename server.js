@@ -13,10 +13,6 @@ const calendarService = require('./services/google-calendar');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware
-app.use(express.static(path.join(__dirname, 'public')));
-app.use(express.json());
-
 // Explicit SEO routes
 app.get('/robots.txt', (req, res) => {
   res.type('text/plain');
@@ -27,6 +23,10 @@ app.get('/sitemap.xml', (req, res) => {
   res.type('application/xml');
   res.sendFile(path.join(__dirname, 'public', 'sitemap.xml'));
 });
+
+// Middleware
+app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.json());
 
 /**
  * Status endpoint - simple text health check
