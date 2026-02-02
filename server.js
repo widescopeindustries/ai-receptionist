@@ -26,11 +26,26 @@ app.get('/sitemap.xml', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'sitemap.xml'));
 });
 
+/**
+ * Status endpoint - simple text health check
+ */
+app.get('/status', (req, res) => {
+  res.send('AI Always Answer is active and ready to close! 🚀');
+});
+
+/**
+ * Utility to strip emojis from text so they aren't read out loud by TTS
+ */
+function cleanTextForTTS(text) {
+  if (!text) return "";
+  return text.replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g, '');
+}
+
 // Raw body for Stripe webhooks (must come before urlencoded)
 app.use('/webhooks/stripe', express.raw({ type: 'application/json' }));
 app.use(express.urlencoded({ extended: false }));
 
-// Store active conversations (in production, use Redis)
+// Store active conversations
 const conversations = new Map();
 
 // Initialize AI Service
@@ -96,17 +111,23 @@ app.post('/voice/process-speech', async (req, res) => {
   console.log('🗣️  Caller said:', userSpeech);
 
   try {
-    const conversationManager = conversations.get(callSid);
+    let conversationManager = conversations.get(callSid);
 
     if (!conversationManager) {
-      throw new Error('Conversation not found');
+      console.log(`⚠️ Conversation ${callSid} not found, initializing new session.`);
+      conversationManager = new ConversationManager(callSid);
+      conversations.set(callSid, conversationManager);
     }
 
     // Add user message to history
-    conversationManager.addMessage('user', userSpeech);
-
-    // Extract lead info from speech (name, email, company mentions)
-    extractLeadInfo(userSpeech, conversationManager.leadId);
+    if (userSpeech) {
+      conversationManager.addMessage('user', userSpeech);
+      // Extract lead info from speech
+      extractLeadInfo(userSpeech, conversationManager.leadId);
+    } else {
+      twiml.redirect('/voice/no-input');
+      return res.send(twiml.toString());
+    }
 
     // Get AI response
     const aiResponse = await aiService.getResponse(
@@ -141,7 +162,8 @@ app.post('/voice/process-speech', async (req, res) => {
         }
       }
     } else {
-      // Add regular AI response to history
+      // Clean emojis for TTS
+      finalSpeechResponse = cleanTextForTTS(finalSpeechResponse);
       conversationManager.addMessage('assistant', finalSpeechResponse);
     }
 
@@ -152,7 +174,7 @@ app.post('/voice/process-speech', async (req, res) => {
     }, finalSpeechResponse);
 
     // Check if conversation should end
-    if (conversationManager.shouldEndCall(aiResponse)) {
+    if (conversationManager.shouldEndCall(finalSpeechResponse)) {
       twiml.say({
         voice: 'Polly.Danielle-Neural',
         language: 'en-US'
@@ -181,15 +203,9 @@ app.post('/voice/process-speech', async (req, res) => {
     twiml.say({
       voice: 'Polly.Danielle-Neural',
       language: 'en-US'
-    }, 'I apologize, I\'m having trouble understanding. Could you please repeat that?');
+    }, 'I apologize, I\'m having trouble understanding. Let\'s get back to business.');
 
-    twiml.gather({
-      input: 'speech',
-      action: '/voice/process-speech',
-      speechTimeout: 'auto',
-      speechModel: 'phone_call',
-      enhanced: true
-    });
+    twiml.redirect('/voice/incoming');
   }
 
   res.type('text/xml');
@@ -205,7 +221,7 @@ app.post('/voice/no-input', (req, res) => {
   twiml.say({
     voice: 'Polly.Danielle-Neural',
     language: 'en-US'
-  }, 'Are you still there? How can I help you?');
+  }, 'Are you still there? I\'m ready to help whenever you are!');
 
   twiml.gather({
     input: 'speech',
@@ -214,11 +230,6 @@ app.post('/voice/no-input', (req, res) => {
     speechModel: 'phone_call',
     enhanced: true
   });
-
-  twiml.say({
-    voice: 'Polly.Danielle-Neural',
-    language: 'en-US'
-  }, 'If you need assistance, please say something or press any key.');
 
   twiml.hangup();
 
@@ -562,27 +573,27 @@ app.get('/dashboard', (req, res) => {
             document.getElementById('active-customers').textContent = data.activeCustomers;
 
             // Render leads
-            const leadsHtml = data.recentLeads.map(lead => \`
+            const leadsHtml = data.recentLeads.map(lead => `
               <tr>
-                <td>\${lead.phone}</td>
-                <td>\${lead.name || '-'}</td>
-                <td>\${lead.company || '-'}</td>
-                <td><span class="status status-\${lead.status}">\${lead.status}</span></td>
-                <td>\${new Date(lead.created_at).toLocaleDateString()}</td>
+                <td>${lead.phone}</td>
+                <td>${lead.name || '-'}</td>
+                <td>${lead.company || '-'}</td>
+                <td><span class="status status-${lead.status}">${lead.status}</span></td>
+                <td>${new Date(lead.created_at).toLocaleDateString()}</td>
               </tr>
-            \`).join('') || '<tr><td colspan="5">No leads yet</td></tr>';
+            `).join('') || '<tr><td colspan="5">No leads yet</td></tr>';
             document.getElementById('leads-table').innerHTML = leadsHtml;
 
             // Render calls
-            const callsHtml = data.recentCalls.map(call => \`
+            const callsHtml = data.recentCalls.map(call => `
               <tr>
-                <td>\${call.phone || call.phone_from}</td>
-                <td>\${call.duration_seconds || 0}s</td>
-                <td>\${call.turn_count || 0}</td>
-                <td>\${call.outcome || '-'}</td>
-                <td>\${new Date(call.created_at).toLocaleDateString()}</td>
+                <td>${call.phone || call.phone_from}</td>
+                <td>${call.duration_seconds || 0}s</td>
+                <td>${call.turn_count || 0}</td>
+                <td>${call.outcome || '-'}</td>
+                <td>${new Date(call.created_at).toLocaleDateString()}</td>
               </tr>
-            \`).join('') || '<tr><td colspan="5">No calls yet</td></tr>';
+            `).join('') || '<tr><td colspan="5">No calls yet</td></tr>';
             document.getElementById('calls-table').innerHTML = callsHtml;
           } catch (err) {
             console.error('Failed to load stats:', err);
@@ -679,8 +690,6 @@ function extractLeadInfo(speech, leadId) {
   }
 
   // Extract email addresses
-  // Note: Phone STT often adds spaces in emails (e.g. "lyndon at gmail dot com" or "lyndon @ gmail . com")
-  // This is a basic attempt to catch standard formats
   const emailPattern = /([a-zA-Z0-9._%+-]+\s*@\s*[a-zA-Z0-9.-]+\s*\.\s*[a-zA-Z]{2,4})/i;
   const emailMatch = speech.match(emailPattern);
   if (emailMatch) {
@@ -742,7 +751,7 @@ async function saveCallData(callSid, conversationManager) {
 }
 
 // Start server
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 AI Receptionist server running on port ${PORT}`);
   console.log(`📱 Webhook URL: ${process.env.BASE_URL || `http://localhost:${PORT}`}/voice/incoming`);
   console.log(`🌐 Landing page: ${process.env.BASE_URL || `http://localhost:${PORT}`}`);
