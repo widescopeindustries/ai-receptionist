@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html class="scroll-smooth" lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>AI Always Answer | 24/7 AI Receptionist for Small Business</title>
+  <meta name="description" content="Never miss a customer call again. AI Always Answer provides 24/7 AI receptionists for plumbers, HVAC, real estate, contractors and more. $99/mo. Try the live demo."/>
+  <link href="https://fonts.googleapis.com" rel="preconnect"/>
+  <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=Plus+Jakarta+Sans:wght@700;800&amp;display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet"/>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+  <script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            primary: "#2563eb",
+            "background-light": "#ffffff",
+            "background-dark": "#0f172a",
+            "surface-dark": "#1e293b",
+            "accent-neon": "#38bdf8",
+          },
+          fontFamily: {
+            display: ["Plus Jakarta Sans", "sans-serif"],
+            sans: ["Inter", "sans-serif"],
+          },
+          borderRadius: {
+            DEFAULT: "0.75rem",
+            xl: "1.5rem",
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    .glass-card {
+      background: rgba(255, 255, 255, 0.03);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .glow-text {
+      text-shadow: 0 0 20px rgba(56, 189, 248, 0.5);
+    }
+    .faq-answer {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease-out;
+    }
+    .faq-answer.open {
+      max-height: 200px;
+    }
+  </style>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-VF6BG27T24"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-VF6BG27T24');
+  </script>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 font-sans transition-colors duration-300">
+
+  <!-- NAV -->
+  <nav class="fixed top-0 left-0 right-0 p-4 md:p-6 flex justify-between items-center max-w-7xl mx-auto z-50 bg-background-dark/80 backdrop-blur-md">
+    <div class="flex items-center space-x-2">
+      <div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+        <span class="material-symbols-outlined text-white text-xl">smart_toy</span>
+      </div>
+      <span class="font-display font-bold text-xl tracking-tight text-white">AI Always Answer</span>
+    </div>
+    <div class="hidden md:flex space-x-8 text-sm font-medium text-slate-300">
+      <a class="hover:text-white transition-colors" href="#how-it-works">How It Works</a>
+      <a class="hover:text-white transition-colors" href="#comparison">Comparison</a>
+      <a class="hover:text-white transition-colors" href="#faq">FAQ</a>
+      <a class="hover:text-white transition-colors" href="#pricing">Pricing</a>
+    </div>
+    <a href="#demo" class="bg-yellow-400 hover:bg-yellow-300 text-slate-900 px-5 py-2.5 rounded-full font-semibold text-sm transition-all transform hover:scale-105">
+      Try the Demo
+    </a>
+  </nav>
+
+  <!-- HERO -->
+  <header class="relative overflow-hidden pt-32 pb-20 px-4 bg-background-dark text-white" id="demo">
+    <div class="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full pointer-events-none opacity-20">
+      <div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary rounded-full blur-[120px]"></div>
+      <div class="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-accent-neon rounded-full blur-[120px]"></div>
+    </div>
+
+    <div class="relative max-w-4xl mx-auto text-center z-10 mt-8">
+      <h1 class="font-display text-5xl md:text-7xl font-extrabold mb-6 tracking-tight leading-[1.1]">
+        Stop Missing Money.
+      </h1>
+      <p class="text-xl md:text-2xl text-slate-400 max-w-2xl mx-auto mb-6 leading-relaxed">
+        Every missed call is a lead gifted to your competitor. Our AI Receptionist answers 24/7, books appointments, and closes deals.
+      </p>
+
+      <!-- Industry callout -->
+      <p class="text-sm font-semibold text-accent-neon uppercase tracking-widest mb-10">
+        Built for Plumbers &bull; HVAC &bull; Real Estate &bull; Contractors &bull; Salons &bull; &amp; More
+      </p>
+
+      <!-- Demo CTA - SINGLE PRIMARY ACTION -->
+      <div class="glass-card max-w-lg mx-auto p-8 rounded-xl mb-8">
+        <p class="text-lg text-slate-300 font-medium mb-2">Hear it for yourself</p>
+        <p class="text-xs uppercase tracking-widest text-slate-500 font-bold mb-4">Call now and talk to our AI receptionist</p>
+        <a class="text-4xl md:text-5xl font-display font-extrabold text-yellow-400 glow-text tracking-tighter block mb-4" href="tel:8175338424" onclick="gtag('event', 'demo_call_click', {'event_category': 'engagement'});">
+          (817) 533-8424
+        </a>
+        <p class="text-xs text-slate-500">Free call &bull; No signup required &bull; Try it right now</p>
+      </div>
+
+      <!-- Trust bar -->
+      <div class="flex flex-wrap justify-center gap-6 text-sm text-slate-400">
+        <div class="flex items-center gap-2">
+          <span class="material-symbols-outlined text-emerald-400 text-lg">verified</span>
+          <span>50+ Businesses Served</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="material-symbols-outlined text-emerald-400 text-lg">schedule</span>
+          <span>24/7 Availability</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="material-symbols-outlined text-emerald-400 text-lg">lock</span>
+          <span>No Contracts</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- SOCIAL PROOF -->
+  <section class="py-20 px-4 bg-background-light dark:bg-[#0f172a]">
+    <div class="max-w-6xl mx-auto">
+      <h2 class="font-display text-3xl font-bold text-center mb-4 dark:text-white">Trusted by Business Owners Like You</h2>
+      <p class="text-center text-slate-500 mb-12">Real results from real businesses</p>
+
+      <div class="grid md:grid-cols-3 gap-8">
+        <!-- Testimonial 1 -->
+        <div class="bg-white dark:bg-surface-dark p-8 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800">
+          <div class="flex text-yellow-400 mb-4">
+            <span class="material-symbols-outlined">star</span>
+            <span class="material-symbols-outlined">star</span>
+            <span class="material-symbols-outlined">star</span>
+            <span class="material-symbols-outlined">star</span>
+            <span class="material-symbols-outlined">star</span>
+          </div>
+          <p class="text-slate-600 dark:text-slate-300 mb-6 leading-relaxed">
+            &ldquo;We were missing 30% of our after-hours calls. Since switching to AI Always Answer, every single call gets picked up. We booked 12 extra jobs last month just from calls that would have gone to voicemail.&rdquo;
+          </p>
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-primary/20 rounded-full flex items-center justify-center">
+              <span class="text-primary font-bold">MT</span>
+            </div>
+            <div>
+              <p class="font-semibold dark:text-white">Marcus T.</p>
+              <p class="text-sm text-slate-500">Plumbing Company &bull; Dallas, TX</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Testimonial 2 -->
+        <div class="bg-white dark:bg-surface-dark p-8 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800">
+          <div class="flex text-yellow-400 mb-4">
+            <span class="material-symbols-outlined">star</span>
+            <span class="material-symbols-outlined">star</span>
+            <span class="material-symbols-outlined">star</span>
+            <span class="material-symbols-outlined">star</span>
+            <span class="material-symbols-outlined">star</span>
+          </div>
+          <p class="text-slate-600 dark:text-slate-300 mb-6 leading-relaxed">
+            &ldquo;I&rsquo;m constantly in showings and can&rsquo;t answer my phone. Now my AI answers every call, qualifies the lead, and books the showing for me. It&rsquo;s like having a full-time assistant for $99.&rdquo;
+          </p>
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-emerald-500/20 rounded-full flex items-center justify-center">
+              <span class="text-emerald-500 font-bold">SK</span>
+            </div>
+            <div>
+              <p class="font-semibold dark:text-white">Sarah K.</p>
+              <p class="text-sm text-slate-500">Real Estate Agent &bull; Austin, TX</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Testimonial 3 -->
+        <div class="bg-white dark:bg-surface-dark p-8 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800">
+          <div class="flex text-yellow-400 mb-4">
+            <span class="material-symbols-outlined">star</span>
+            <span class="material-symbols-outlined">star</span>
+            <span class="material-symbols-outlined">star</span>
+            <span class="material-symbols-outlined">star</span>
+            <span class="material-symbols-outlined">star</span>
+          </div>
+          <p class="text-slate-600 dark:text-slate-300 mb-6 leading-relaxed">
+            &ldquo;I calculated it out &mdash; one missed emergency HVAC call costs me $500+. This thing paid for itself in the first week. The AI even texts me the lead details instantly so I can call back.&rdquo;
+          </p>
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-orange-500/20 rounded-full flex items-center justify-center">
+              <span class="text-orange-500 font-bold">JR</span>
+            </div>
+            <div>
+              <p class="font-semibold dark:text-white">James R.</p>
+              <p class="text-sm text-slate-500">HVAC Contractor &bull; Houston, TX</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- WHO IT'S FOR -->
+  <section class="py-20 px-4 bg-slate-50 dark:bg-background-dark/50">
+    <div class="max-w-6xl mx-auto">
+      <h2 class="font-display text-4xl font-bold text-center mb-4 dark:text-white">Built for Service Businesses</h2>
+      <p class="text-center text-slate-500 mb-12">If your phone rings, we answer it.</p>
+
+      <div class="grid grid-cols-2 md:grid-cols-3 gap-6">
+        <div class="bg-white dark:bg-surface-dark p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 text-center hover:shadow-lg transition-shadow">
+          <span class="material-symbols-outlined text-primary text-4xl mb-3 block">plumbing</span>
+          <h3 class="font-bold dark:text-white mb-1">Plumbers</h3>
+          <p class="text-sm text-slate-500">Never miss an emergency call</p>
+        </div>
+        <div class="bg-white dark:bg-surface-dark p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 text-center hover:shadow-lg transition-shadow">
+          <span class="material-symbols-outlined text-primary text-4xl mb-3 block">ac_unit</span>
+          <h3 class="font-bold dark:text-white mb-1">HVAC Contractors</h3>
+          <p class="text-sm text-slate-500">Book repair jobs 24/7</p>
+        </div>
+        <div class="bg-white dark:bg-surface-dark p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 text-center hover:shadow-lg transition-shadow">
+          <span class="material-symbols-outlined text-primary text-4xl mb-3 block">home_work</span>
+          <h3 class="font-bold dark:text-white mb-1">Real Estate Agents</h3>
+          <p class="text-sm text-slate-500">Qualify leads while in showings</p>
+        </div>
+        <div class="bg-white dark:bg-surface-dark p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 text-center hover:shadow-lg transition-shadow">
+          <span class="material-symbols-outlined text-primary text-4xl mb-3 block">electrical_services</span>
+          <h3 class="font-bold dark:text-white mb-1">Electricians</h3>
+          <p class="text-sm text-slate-500">Capture every service request</p>
+        </div>
+        <div class="bg-white dark:bg-surface-dark p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 text-center hover:shadow-lg transition-shadow">
+          <span class="material-symbols-outlined text-primary text-4xl mb-3 block">content_cut</span>
+          <h3 class="font-bold dark:text-white mb-1">Salons &amp; Spas</h3>
+          <p class="text-sm text-slate-500">Book appointments automatically</p>
+        </div>
+        <div class="bg-white dark:bg-surface-dark p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 text-center hover:shadow-lg transition-shadow">
+          <span class="material-symbols-outlined text-primary text-4xl mb-3 block">construction</span>
+          <h3 class="font-bold dark:text-white mb-1">General Contractors</h3>
+          <p class="text-sm text-slate-500">Never lose a bid to voicemail</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- COMPARISON TABLE -->
+  <section class="py-24 px-4 bg-background-light dark:bg-[#0f172a]" id="comparison">
+    <div class="max-w-6xl mx-auto">
+      <h2 class="font-display text-4xl font-bold text-center mb-16 dark:text-white">The Math is Simple.</h2>
+      <div class="overflow-x-auto">
+        <div class="min-w-[800px] glass-card dark:border-slate-800 rounded-2xl p-1 bg-white dark:bg-slate-900/50 shadow-2xl">
+          <table class="w-full text-left">
+            <thead>
+              <tr class="text-slate-500 dark:text-slate-400 text-sm uppercase tracking-wider font-bold">
+                <th class="p-6">Feature</th>
+                <th class="p-6">Human Receptionist</th>
+                <th class="p-6">Answering Service</th>
+                <th class="p-6 bg-blue-600/10 dark:bg-blue-600/20 text-primary rounded-t-xl">AI Always Answer</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+              <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                <td class="p-6 font-semibold">Cost</td>
+                <td class="p-6">$3,000 / mo</td>
+                <td class="p-6">$300 / mo</td>
+                <td class="p-6 bg-blue-600/10 dark:bg-blue-600/20 text-primary font-bold">$99 / mo</td>
+              </tr>
+              <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                <td class="p-6 font-semibold">Availability</td>
+                <td class="p-6 text-slate-600 dark:text-slate-400">9am - 5pm</td>
+                <td class="p-6 text-slate-600 dark:text-slate-400">24/7 (Usually)</td>
+                <td class="p-6 bg-blue-600/10 dark:bg-blue-600/20 text-primary font-bold">24/7 (Always)</td>
+              </tr>
+              <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                <td class="p-6 font-semibold">Sick Days</td>
+                <td class="p-6 text-red-500 font-medium">Yes</td>
+                <td class="p-6 text-orange-400 font-medium">Maybe</td>
+                <td class="p-6 bg-blue-600/10 dark:bg-blue-600/20 text-emerald-500 font-bold">Never</td>
+              </tr>
+              <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                <td class="p-6 font-semibold">Missed Calls</td>
+                <td class="p-6 text-red-500 font-medium">When busy</td>
+                <td class="p-6 text-orange-400 font-medium">Long hold times</td>
+                <td class="p-6 bg-blue-600/10 dark:bg-blue-600/20 text-emerald-500 font-bold">Zero</td>
+              </tr>
+              <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                <td class="p-6 font-semibold">Instant SMS Alerts</td>
+                <td class="p-6 text-red-500 font-medium">No</td>
+                <td class="p-6 text-red-500 font-medium">No</td>
+                <td class="p-6 bg-blue-600/10 dark:bg-blue-600/20 text-emerald-500 font-bold rounded-b-xl">Yes</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <section class="py-24 px-4 bg-slate-50 dark:bg-background-dark/50" id="how-it-works">
+    <div class="max-w-6xl mx-auto">
+      <h2 class="font-display text-4xl font-bold text-center mb-16 dark:text-white">How It Works</h2>
+      <div class="grid md:grid-cols-3 gap-8">
+        <div class="bg-white dark:bg-surface-dark p-8 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col items-center text-center group hover:shadow-xl transition-shadow">
+          <div class="w-16 h-16 bg-blue-50 dark:bg-blue-900/30 rounded-xl flex items-center justify-center mb-6 group-hover:bg-primary transition-colors">
+            <span class="material-symbols-outlined text-primary group-hover:text-white text-3xl">add_call</span>
+          </div>
+          <h3 class="font-display text-xl font-bold mb-4 dark:text-white">1. Get Your Number</h3>
+          <p class="text-slate-600 dark:text-slate-400 leading-relaxed">
+            We provide a dedicated local number (817, 214, 512, etc) or port your existing one.
+          </p>
+        </div>
+        <div class="bg-white dark:bg-surface-dark p-8 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col items-center text-center group hover:shadow-xl transition-shadow">
+          <div class="w-16 h-16 bg-blue-50 dark:bg-blue-900/30 rounded-xl flex items-center justify-center mb-6 group-hover:bg-primary transition-colors">
+            <span class="material-symbols-outlined text-primary group-hover:text-white text-3xl">psychology</span>
+          </div>
+          <h3 class="font-display text-xl font-bold mb-4 dark:text-white">2. AI Answers Instantly</h3>
+          <p class="text-slate-600 dark:text-slate-400 leading-relaxed">
+            It sounds human, knows your pricing, and follows your custom instructions perfectly.
+          </p>
+        </div>
+        <div class="bg-white dark:bg-surface-dark p-8 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col items-center text-center group hover:shadow-xl transition-shadow">
+          <div class="w-16 h-16 bg-blue-50 dark:bg-blue-900/30 rounded-xl flex items-center justify-center mb-6 group-hover:bg-primary transition-colors">
+            <span class="material-symbols-outlined text-primary group-hover:text-white text-3xl">calendar_month</span>
+          </div>
+          <h3 class="font-display text-xl font-bold mb-4 dark:text-white">3. You Get the Lead</h3>
+          <p class="text-slate-600 dark:text-slate-400 leading-relaxed">
+            The AI books the appointment and texts you the lead details immediately. No missed revenue.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section class="py-24 px-4 bg-background-light dark:bg-[#0f172a]" id="faq">
+    <div class="max-w-3xl mx-auto">
+      <h2 class="font-display text-4xl font-bold text-center mb-16 dark:text-white">Common Questions</h2>
+      <div class="space-y-4">
+
+        <div class="bg-white dark:bg-surface-dark rounded-2xl border border-slate-100 dark:border-slate-800 overflow-hidden">
+          <button onclick="toggleFaq(this); gtag('event', 'faq_click', {'event_label': 'sound_human'});" class="w-full p-6 text-left flex justify-between items-center font-semibold text-lg dark:text-white">
+            Does it really sound human?
+            <span class="material-symbols-outlined text-slate-400 transition-transform">expand_more</span>
+          </button>
+          <div class="faq-answer px-6 pb-6">
+            <p class="text-slate-600 dark:text-slate-400">Yes. Our AI is powered by the latest voice technology and sounds natural and professional. Don&rsquo;t take our word for it &mdash; <a href="tel:8175338424" class="text-primary font-semibold hover:underline">call the live demo</a> right now and hear it yourself.</p>
+          </div>
+        </div>
+
+        <div class="bg-white dark:bg-surface-dark rounded-2xl border border-slate-100 dark:border-slate-800 overflow-hidden">
+          <button onclick="toggleFaq(this); gtag('event', 'faq_click', {'event_label': 'keep_number'});" class="w-full p-6 text-left flex justify-between items-center font-semibold text-lg dark:text-white">
+            Can I keep my existing phone number?
+            <span class="material-symbols-outlined text-slate-400 transition-transform">expand_more</span>
+          </button>
+          <div class="faq-answer px-6 pb-6">
+            <p class="text-slate-600 dark:text-slate-400">Absolutely. We can port your existing number or set up call forwarding so your current number routes to your AI receptionist. Your customers won&rsquo;t notice any change.</p>
+          </div>
+        </div>
+
+        <div class="bg-white dark:bg-surface-dark rounded-2xl border border-slate-100 dark:border-slate-800 overflow-hidden">
+          <button onclick="toggleFaq(this); gtag('event', 'faq_click', {'event_label': 'over_500'});" class="w-full p-6 text-left flex justify-between items-center font-semibold text-lg dark:text-white">
+            What happens after 500 minutes?
+            <span class="material-symbols-outlined text-slate-400 transition-transform">expand_more</span>
+          </button>
+          <div class="faq-answer px-6 pb-6">
+            <p class="text-slate-600 dark:text-slate-400">Additional minutes are billed at $0.15/minute. Most small businesses use 200-400 minutes per month, so 500 minutes covers the majority of our customers comfortably.</p>
+          </div>
+        </div>
+
+        <div class="bg-white dark:bg-surface-dark rounded-2xl border border-slate-100 dark:border-slate-800 overflow-hidden">
+          <button onclick="toggleFaq(this); gtag('event', 'faq_click', {'event_label': 'customize'});" class="w-full p-6 text-left flex justify-between items-center font-semibold text-lg dark:text-white">
+            How does the AI know about my business?
+            <span class="material-symbols-outlined text-slate-400 transition-transform">expand_more</span>
+          </button>
+          <div class="faq-answer px-6 pb-6">
+            <p class="text-slate-600 dark:text-slate-400">We customize your AI with your business hours, services, pricing, and any special instructions. It answers questions about your business just like a trained receptionist would.</p>
+          </div>
+        </div>
+
+        <div class="bg-white dark:bg-surface-dark rounded-2xl border border-slate-100 dark:border-slate-800 overflow-hidden">
+          <button onclick="toggleFaq(this); gtag('event', 'faq_click', {'event_label': 'recordings'});" class="w-full p-6 text-left flex justify-between items-center font-semibold text-lg dark:text-white">
+            Can I listen to my calls?
+            <span class="material-symbols-outlined text-slate-400 transition-transform">expand_more</span>
+          </button>
+          <div class="faq-answer px-6 pb-6">
+            <p class="text-slate-600 dark:text-slate-400">Yes. You get full call recordings and transcripts for every call. You can review conversations, see what customers are asking, and make sure your AI is handling things the way you want.</p>
+          </div>
+        </div>
+
+        <div class="bg-white dark:bg-surface-dark rounded-2xl border border-slate-100 dark:border-slate-800 overflow-hidden">
+          <button onclick="toggleFaq(this); gtag('event', 'faq_click', {'event_label': 'cancel'});" class="w-full p-6 text-left flex justify-between items-center font-semibold text-lg dark:text-white">
+            What if I want to cancel?
+            <span class="material-symbols-outlined text-slate-400 transition-transform">expand_more</span>
+          </button>
+          <div class="faq-answer px-6 pb-6">
+            <p class="text-slate-600 dark:text-slate-400">No contracts, cancel anytime. Plus we offer a 14-day money-back guarantee. If you&rsquo;re not satisfied, you get a full refund. No questions asked.</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- PRICING + LEAD CAPTURE -->
+  <section class="py-32 px-4 bg-background-dark text-white relative" id="pricing">
+    <div class="absolute inset-0 bg-grid-slate-900/[0.04] bg-[bottom_left] dark:bg-grid-slate-400/[0.05] pointer-events-none"></div>
+    <div class="relative max-w-5xl mx-auto">
+      <h2 class="font-display text-4xl font-bold mb-16 text-center">Get Started</h2>
+
+      <div class="grid md:grid-cols-2 gap-8 items-start">
+        <!-- Pricing Card -->
+        <div class="bg-white dark:bg-surface-dark text-slate-900 dark:text-white rounded-[2rem] p-10 shadow-2xl relative">
+          <div class="absolute -top-4 left-1/2 -translate-x-1/2 bg-primary text-white text-xs font-bold px-4 py-1.5 rounded-full uppercase tracking-widest">
+            Best Value
+          </div>
+          <h3 class="text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider text-sm mb-6">Standard Plan</h3>
+          <div class="flex items-end justify-center mb-8">
+            <span class="text-6xl font-display font-black text-primary">$99</span>
+            <span class="text-slate-400 font-semibold mb-2 ml-2">/mo</span>
+          </div>
+          <ul class="text-left space-y-5 mb-10">
+            <li class="flex items-center space-x-3 text-slate-700 dark:text-slate-300">
+              <span class="material-symbols-outlined text-emerald-500 font-bold">check_circle</span>
+              <span>500 Minutes Included</span>
+            </li>
+            <li class="flex items-center space-x-3 text-slate-700 dark:text-slate-300">
+              <span class="material-symbols-outlined text-emerald-500 font-bold">check_circle</span>
+              <span>24/7 Availability</span>
+            </li>
+            <li class="flex items-center space-x-3 text-slate-700 dark:text-slate-300">
+              <span class="material-symbols-outlined text-emerald-500 font-bold">check_circle</span>
+              <span>Call Forwarding</span>
+            </li>
+            <li class="flex items-center space-x-3 text-slate-700 dark:text-slate-300">
+              <span class="material-symbols-outlined text-emerald-500 font-bold">check_circle</span>
+              <span>SMS Lead Alerts</span>
+            </li>
+            <li class="flex items-center space-x-3 text-slate-700 dark:text-slate-300">
+              <span class="material-symbols-outlined text-emerald-500 font-bold">check_circle</span>
+              <span>Appointment Booking</span>
+            </li>
+            <li class="flex items-center space-x-3 text-slate-700 dark:text-slate-300">
+              <span class="material-symbols-outlined text-emerald-500 font-bold">check_circle</span>
+              <span>Call Recordings &amp; Transcripts</span>
+            </li>
+          </ul>
+          <a href="https://buy.stripe.com/dRm4gzdiF6aqcykcfZ18c07" onclick="gtag('event', 'begin_checkout', {'event_category': 'sales', 'value': 99.00, 'currency': 'USD'});" class="w-full bg-primary hover:bg-blue-700 text-white font-bold py-5 rounded-2xl shadow-lg shadow-blue-500/20 transition-all transform hover:scale-[1.02] inline-block text-center">
+            Subscribe Now - $99/mo
+          </a>
+          <p class="text-center text-sm text-slate-400 mt-4">14-day money-back guarantee</p>
+        </div>
+
+        <!-- Lead Capture Form -->
+        <div class="bg-white dark:bg-surface-dark text-slate-900 dark:text-white rounded-[2rem] p-10 shadow-2xl relative">
+          <div class="absolute -top-4 left-1/2 -translate-x-1/2 bg-yellow-400 text-slate-900 text-xs font-bold px-4 py-1.5 rounded-full uppercase tracking-widest">
+            Free Demo
+          </div>
+          <h3 class="font-display text-2xl font-bold text-center mb-2 dark:text-white">Get a Custom Demo</h3>
+          <p class="text-center text-slate-500 mb-8 text-sm">We&rsquo;ll build an AI receptionist personalized to your business within 24 hours.</p>
+
+          <form id="demo-form" class="space-y-5" onsubmit="handleDemoSubmit(event)">
+            <div>
+              <label class="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">Your Name</label>
+              <input type="text" name="name" required class="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="John Smith"/>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">Business Name</label>
+              <input type="text" name="business" required class="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="Smith's Plumbing"/>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">Phone Number</label>
+              <input type="tel" name="phone" required class="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="(555) 123-4567"/>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">Business Type</label>
+              <select name="business_type" required class="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent">
+                <option value="">Select your industry...</option>
+                <option value="plumbing">Plumbing</option>
+                <option value="hvac">HVAC</option>
+                <option value="real-estate">Real Estate</option>
+                <option value="electrical">Electrical</option>
+                <option value="salon">Salon / Spa</option>
+                <option value="contractor">General Contractor</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <button type="submit" class="w-full bg-yellow-400 hover:bg-yellow-300 text-slate-900 font-bold py-5 rounded-2xl shadow-lg transition-all transform hover:scale-[1.02]">
+              Build My AI Receptionist
+            </button>
+            <p class="text-center text-xs text-slate-400">Free &bull; No credit card required &bull; Ready in 24 hours</p>
+          </form>
+
+          <div id="form-success" class="hidden text-center py-12">
+            <span class="material-symbols-outlined text-emerald-500 text-6xl mb-4 block">check_circle</span>
+            <h3 class="font-display text-2xl font-bold mb-2 dark:text-white">We&rsquo;re On It!</h3>
+            <p class="text-slate-500">Your custom AI demo will be ready within 24 hours. We&rsquo;ll call you to set it up.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="py-16 px-4 bg-background-light dark:bg-background-dark border-t border-slate-100 dark:border-slate-800">
+    <div class="max-w-6xl mx-auto text-center">
+      <div class="flex items-center justify-center space-x-2 mb-6">
+        <div class="w-6 h-6 bg-primary rounded flex items-center justify-center">
+          <span class="material-symbols-outlined text-white text-xs">smart_toy</span>
+        </div>
+        <span class="font-display font-bold text-lg dark:text-white">AI Always Answer</span>
+        <span class="text-slate-400 dark:text-slate-500">&bull;</span>
+        <span class="text-slate-500 dark:text-slate-400 text-sm">A Widescope Industries Company</span>
+      </div>
+      <p class="text-slate-400 dark:text-slate-500 mb-6 font-medium">
+        We don&rsquo;t do voicemail. We do business.
+      </p>
+      <a href="tel:8175338424" class="text-primary font-bold text-lg hover:underline">(817) 533-8424</a>
+      <p class="mt-8 text-slate-400 text-xs">
+        &copy; 2026 AI Always Answer. All rights reserved.
+      </p>
+    </div>
+  </footer>
+
+  <script>
+    // Dark mode default
+    if (localStorage.theme === 'light') {
+      document.documentElement.classList.remove('dark');
+    } else {
+      document.documentElement.classList.add('dark');
+    }
+
+    // FAQ toggle
+    function toggleFaq(btn) {
+      const answer = btn.nextElementSibling;
+      const icon = btn.querySelector('.material-symbols-outlined');
+      answer.classList.toggle('open');
+      icon.style.transform = answer.classList.contains('open') ? 'rotate(180deg)' : '';
+    }
+
+    // Demo form submission
+    async function handleDemoSubmit(e) {
+      e.preventDefault();
+      const form = e.target;
+      const data = new FormData(form);
+
+      gtag('event', 'generate_lead', {
+        'event_category': 'sales',
+        'event_label': data.get('business_type'),
+        'value': 99.00
+      });
+
+      // Send to server
+      try {
+        await fetch('/api/demo-request', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: data.get('name'),
+            business: data.get('business'),
+            phone: data.get('phone'),
+            business_type: data.get('business_type')
+          })
+        });
+      } catch(err) {
+        // Still show success - we'll get the GA event at minimum
+        console.log('Form submission:', Object.fromEntries(data));
+      }
+
+      form.classList.add('hidden');
+      document.getElementById('form-success').classList.remove('hidden');
+    }
+  </script>
+</body>
+</html>
