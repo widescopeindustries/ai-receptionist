@@ -77,6 +77,11 @@ class DatabaseService {
       )
     `);
 
+    // Add business_id columns if they don't exist (migration for existing DBs)
+    try { this.db.exec('ALTER TABLE leads ADD COLUMN business_id TEXT DEFAULT "widescope"'); } catch (e) { /* column exists */ }
+    try { this.db.exec('ALTER TABLE leads ADD COLUMN address TEXT'); } catch (e) { /* column exists */ }
+    try { this.db.exec('ALTER TABLE calls ADD COLUMN business_id TEXT DEFAULT "widescope"'); } catch (e) { /* column exists */ }
+
     // Create indexes
     this.db.exec(`
       CREATE INDEX IF NOT EXISTS idx_leads_phone ON leads(phone);
@@ -164,16 +169,16 @@ class DatabaseService {
   /**
    * Create a call record
    */
-  createCall(callSid, phoneFrom, phoneTo) {
+  createCall(callSid, phoneFrom, phoneTo, businessId = 'widescope') {
     const id = uuidv4();
 
     // Get or create lead
-    const lead = this.createOrUpdateLead(phoneFrom);
+    const lead = this.createOrUpdateLead(phoneFrom, { business_id: businessId });
 
     this.db.prepare(`
-      INSERT INTO calls (id, call_sid, lead_id, phone_from, phone_to)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(id, callSid, lead.id, phoneFrom, phoneTo);
+      INSERT INTO calls (id, call_sid, lead_id, phone_from, phone_to, business_id)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(id, callSid, lead.id, phoneFrom, phoneTo, businessId);
 
     return { callId: id, leadId: lead.id };
   }

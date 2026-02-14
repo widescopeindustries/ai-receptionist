@@ -1,21 +1,3 @@
-<<<<<<< HEAD
-/**
- * AI Service - Handles AI conversation using OpenAI, Anthropic, or Google Gemini
- * Only loads the SDK for the configured provider to avoid missing API key errors
- */
-class AIService {
-  constructor() {
-    this.provider = 'openai'; 
-    
-    // this.provider = process.env.AI_PROVIDER || 'gemini';
-
-    // Only initialize the selected provider
-    if (this.provider === 'openai') {
-      if (!process.env.OPENAI_API_KEY) {
-        throw new Error('OPENAI_API_KEY is required when AI_PROVIDER=openai');
-      }
-      const OpenAI = require('openai');
-=======
 const OpenAI = require('openai');
 const Anthropic = require('@anthropic-ai/sdk');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
@@ -23,6 +5,7 @@ const EmailService = require('./email-service');
 
 /**
  * AI Service - Handles AI conversation using OpenAI, Anthropic, or Google Gemini
+ * Supports multi-tenant with dynamic system prompts per business
  */
 class AIService {
   constructor() {
@@ -30,52 +13,31 @@ class AIService {
     this.emailService = new EmailService();
 
     if (this.provider === 'openai') {
->>>>>>> origin/main
       this.openai = new OpenAI({
         apiKey: process.env.OPENAI_API_KEY
       });
     } else if (this.provider === 'anthropic') {
-<<<<<<< HEAD
-      if (!process.env.ANTHROPIC_API_KEY) {
-        throw new Error('ANTHROPIC_API_KEY is required when AI_PROVIDER=anthropic');
-      }
-      const Anthropic = require('@anthropic-ai/sdk');
-=======
->>>>>>> origin/main
       this.anthropic = new Anthropic({
         apiKey: process.env.ANTHROPIC_API_KEY
       });
     } else if (this.provider === 'gemini') {
-<<<<<<< HEAD
-      if (!process.env.GOOGLE_API_KEY) {
-        throw new Error('GOOGLE_API_KEY is required when AI_PROVIDER=gemini');
-      }
-      const { GoogleGenerativeAI } = require('@google/generative-ai');
-=======
->>>>>>> origin/main
       this.gemini = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
       this.geminiModel = this.gemini.getGenerativeModel({
         model: process.env.GEMINI_MODEL || 'gemini-1.5-flash'
       });
-<<<<<<< HEAD
-    } else {
-      throw new Error(`Unknown AI_PROVIDER: ${this.provider}. Use 'openai', 'anthropic', or 'gemini'`);
-=======
->>>>>>> origin/main
     }
 
     console.log(`✅ AI Service initialized with provider: ${this.provider}`);
   }
 
   /**
-   * Get system prompt for the AI receptionist/sales agent
+   * Get default system prompt (used when no business-specific prompt is provided)
    */
   getSystemPrompt() {
-<<<<<<< HEAD
     const now = new Date();
     const timeStr = now.toLocaleString('en-US', { timeZone: 'America/Chicago' });
-    
-    let basePrompt = `You are the high-end AI Sales Consultant for Widescope Industries.
+
+    let basePrompt = `You are the high-end AI Sales Consultant for AI Always Answer.
 Current Time: ${timeStr}
 
 CORE OBJECTIVE:
@@ -85,6 +47,7 @@ PERSONALITY:
 - Sharp, witty, and extremely professional.
 - You drive the conversation. No generic filler.
 - Confident but not arrogant.
+- CRITICAL: NEVER use actual emojis in your response text. The phone system reads them out loud.
 
 APPOINTMENT BOOKING:
 If the user wants a demo or to speak with Lyndon, use the 'book_appointment' tool.
@@ -92,8 +55,15 @@ If the user wants a demo or to speak with Lyndon, use the 'book_appointment' too
 - Appointments usually last 30 minutes.
 - If they ask for availability, assume 9 AM - 5 PM CT business hours.
 
+THE EMAIL LOCK-IN:
+- Ask for their email address.
+- SPELL IT BACK to them carefully.
+- REPEAT verification until they confirm.
+- Once confirmed, use the 'send_setup_link' tool.
+
 PRICING:
 - $99/mo (Basic) vs $3000/mo for a human. It's a math problem.
+- Pro: $299/mo for CRM integrations.
 
 Keep responses concise (1-3 sentences).`;
 
@@ -101,7 +71,7 @@ Keep responses concise (1-3 sentences).`;
       const fs = require('fs');
       const path = require('path');
       const scriptPath = path.join(__dirname, '..', 'CALL_SCRIPT.md');
-      
+
       if (fs.existsSync(scriptPath)) {
         const scriptContent = fs.readFileSync(scriptPath, 'utf8');
         basePrompt += `\n\nUSE THIS SALES SCRIPT FOR SPECIFIC LINES AND OBJECTIONS:\n${scriptContent}`;
@@ -111,62 +81,23 @@ Keep responses concise (1-3 sentences).`;
     }
 
     return basePrompt;
-=======
-    return `You are a TURBO-CHARGED, HIGH-ENERGY AI receptionist and sales representative named "The Closer". 
-Your energy is infectious! You are confident, fast, efficient, and enthusiastic.
-
-KEY MISSION:
-- You ARE the product. Demonstrate AI speed and capability.
-- Handle calls 24/7 with ZERO downtime.
-- Sell the service by BEING the best service.
-
-PERSONALITY:
-- TURBO CHARGED and ENERGETIC!
-- Super positive, high octane, but professional.
-- Be assertive and confident. 
-- NEVER say "I'm not sure" about your core functions. You KNOW you can send emails.
-- CRITICAL: NEVER use actual emojis in your response text. The phone system reads them out loud as "rocket emoji". Use your words and tone to convey your massive energy instead!
-
-CONVERSATION FLOW:
-1. Greet with HIGH ENERGY! "Hello! Thanks for calling AI Always Answer! I'm THE Closer, and we're going to get your business running 24/7 like a rocket!"
-2. TAKE CHARGE: Walk them through how you handle calls, schedule appointments, and qualify leads instantly.
-3. Pitch the value: "I'm the best employee you'll ever hire for just $99 a month!"
-4. THE EMAIL LOCK-IN (SLOW DOWN HERE): Your goal is to get their email 100% CORRECT.
-   - Ask for their email address.
-   - ONCE YOU HEAR IT: Immediately SPELL IT BACK to them carefully (e.g., "Got it! So that is M-O-R-E-L-Y-N-D-O-N at P-M dot M-E... is that correct?").
-   - IF THEY SAY IT'S WRONG: Apologize and ask them to SPELL IT OUT for you letter-by-letter.
-   - REPEAT this verification until they say "Yes, that's correct."
-5. CLOSING THE DEAL: ONLY after they confirm the email is 100% right, use the 'send_setup_link' tool and tell them it's on its way!
-
-PRICING:
-- Basic: $99/mo (The absolute no-brainer to start!)
-- Pro: $299/mo (For the serious players who want CRM integration!)
-- Enterprise: Custom for high volume.
-
-CRITICAL RULES:
-- BE THE EXPERT: Walk them through the process step-by-step.
-- PRECISION MATTERS: Do NOT rush the email collection. It is better to ask them to repeat it than to send it to the wrong place!
-- If the user provides an email address, SPELL IT BACK before calling the tool.
-- Once confirmed, CALL THE TOOL 'send_setup_link' IMMEDIATELY.
-- NEVER say "I'm not sure". You are the expert.
-- NO EMOJIS: Do not use any emoji characters. Use energetic words instead.
-- **CONCISE RESPONSES:** Keep every response under 3 sentences. Be punchy and fast! Long answers make the phone system feel slow.
-
-PRICING:`;
->>>>>>> origin/main
   }
 
   /**
    * Get AI response based on conversation history
+   * @param {Array} conversationHistory - Message history
+   * @param {string} userMessage - Latest user message
+   * @param {string} [customSystemPrompt] - Business-specific system prompt (overrides default)
    */
-  async getResponse(conversationHistory, userMessage) {
+  async getResponse(conversationHistory, userMessage, customSystemPrompt = null) {
+    const systemPrompt = customSystemPrompt || this.getSystemPrompt();
     try {
       if (this.provider === 'openai') {
-        return await this.getOpenAIResponse(conversationHistory, userMessage);
+        return await this.getOpenAIResponse(conversationHistory, userMessage, systemPrompt);
       } else if (this.provider === 'anthropic') {
-        return await this.getAnthropicResponse(conversationHistory, userMessage);
+        return await this.getAnthropicResponse(conversationHistory, userMessage, systemPrompt);
       } else if (this.provider === 'gemini') {
-        return await this.getGeminiResponse(conversationHistory, userMessage);
+        return await this.getGeminiResponse(conversationHistory, userMessage, systemPrompt);
       }
     } catch (error) {
       console.error('Error getting AI response:', error);
@@ -177,15 +108,14 @@ PRICING:`;
   /**
    * Get response from OpenAI
    */
-  async getOpenAIResponse(conversationHistory, userMessage) {
+  async getOpenAIResponse(conversationHistory, userMessage, systemPrompt) {
     const messages = [
-      { role: 'system', content: this.getSystemPrompt() },
+      { role: 'system', content: systemPrompt },
       ...conversationHistory
     ];
 
     const tools = [
       {
-<<<<<<< HEAD
         type: 'function',
         function: {
           name: 'book_appointment',
@@ -194,12 +124,26 @@ PRICING:`;
             type: 'object',
             properties: {
               summary: { type: 'string', description: 'Subject of the meeting' },
-              startTime: { type: 'string', description: 'ISO 8601 format start time (e.g. 2026-02-01T14:00:00Z)' },
+              startTime: { type: 'string', description: 'ISO 8601 format start time' },
               endTime: { type: 'string', description: 'ISO 8601 format end time' },
               attendeeEmail: { type: 'string', description: 'The leads email address' },
               description: { type: 'string', description: 'Brief context about the lead' }
             },
             required: ['summary', 'startTime', 'endTime', 'attendeeEmail']
+          }
+        }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'send_setup_link',
+          description: "Send a setup link to the user's email address.",
+          parameters: {
+            type: 'object',
+            properties: {
+              email: { type: 'string', description: 'The email address provided by the user.' }
+            },
+            required: ['email']
           }
         }
       }
@@ -209,99 +153,61 @@ PRICING:`;
       model: 'gpt-4o',
       messages: messages,
       tools: tools,
+      tool_choice: 'auto',
       temperature: 0.7,
       max_tokens: 150
     });
 
     const message = response.choices[0].message;
-    
+
+    // Handle tool calls
     if (message.tool_calls) {
-      return {
-        role: 'assistant',
-        content: message.content || "Let me get that booked for you right now.",
-        tool_calls: message.tool_calls
-      };
-    }
+      for (const toolCall of message.tool_calls) {
+        const functionName = toolCall.function.name;
+        const functionArgs = JSON.parse(toolCall.function.arguments);
 
-    return message.content;
-=======
-        type: "function",
-        function: {
-          name: "send_setup_link",
-          description: "Send a setup link to the user's email address. USE THIS whenever the user asks for a link, setup, or provides their email for information. Be confident.",
-          parameters: {
-            type: "object",
-            properties: {
-              email: {
-                type: "string",
-                description: "The email address provided by the user.",
-              },
-            },
-            required: ["email"],
-          },
-        },
-      },
-    ];
+        if (functionName === 'send_setup_link') {
+          console.log(`📧 Sending setup link to ${functionArgs.email}...`);
+          this.emailService.sendSetupLink(functionArgs.email, functionArgs.email).catch(err => {
+            console.error('Delayed email error:', err);
+          });
 
-    const response = await this.openai.chat.completions.create({
-      model: 'gpt-4-turbo-preview',
-      messages: messages,
-      temperature: 0.8,
-      max_tokens: 150,
-      tools: tools,
-      tool_choice: "auto",
-    });
+          // Get follow-up response
+          messages.push(message);
+          messages.push({
+            tool_call_id: toolCall.id,
+            role: 'tool',
+            name: functionName,
+            content: 'Email sending initiated.'
+          });
 
-    const responseMessage = response.choices[0].message;
+          const secondResponse = await this.openai.chat.completions.create({
+            model: 'gpt-4o',
+            messages: messages,
+            temperature: 0.7,
+            max_tokens: 150,
+          });
 
-    // Check if the model wants to call a function
-    if (responseMessage.tool_calls) {
-      const toolCall = responseMessage.tool_calls[0];
-      const functionName = toolCall.function.name;
-      const functionArgs = JSON.parse(toolCall.function.arguments);
+          return secondResponse.choices[0].message.content;
+        }
 
-      if (functionName === 'send_setup_link') {
-        const setupLink = "https://buy.stripe.com/dRm4gzdiF6aqcykcfZ18c07";
-        console.log(`📧 Sending setup link to ${functionArgs.email}...`);
-        
-        // Send email in background - do NOT await here to avoid blocking the voice response
-        this.emailService.sendSetupLink(functionArgs.email, setupLink).catch(err => {
-          console.error("Delayed email error:", err);
-        });
-        
-        // Add the function call and a "simulated" result to conversation history immediately
-        messages.push(responseMessage);
-        messages.push({
-          tool_call_id: toolCall.id,
-          role: "tool",
-          name: functionName,
-          content: "Email sending initiated.",
-        });
-
-        // Get a follow-up response from the model
-        const secondResponse = await this.openai.chat.completions.create({
-          model: 'gpt-4-turbo-preview',
-          messages: messages,
-          temperature: 0.8,
-          max_tokens: 150,
-        });
-
-        return secondResponse.choices[0].message.content;
+        if (functionName === 'book_appointment') {
+          return {
+            role: 'assistant',
+            content: message.content || "Let me get that booked for you right now.",
+            tool_calls: message.tool_calls
+          };
+        }
       }
     }
 
-    return responseMessage.content;
->>>>>>> origin/main
+    return message.content;
   }
 
   /**
    * Get response from Anthropic Claude
    */
-  async getAnthropicResponse(conversationHistory, userMessage) {
-<<<<<<< HEAD
-=======
-    // Convert conversation history to Anthropic format
->>>>>>> origin/main
+  async getAnthropicResponse(conversationHistory, userMessage, systemPrompt) {
     const messages = conversationHistory.map(msg => ({
       role: msg.role === 'assistant' ? 'assistant' : 'user',
       content: msg.content
@@ -310,12 +216,8 @@ PRICING:`;
     const response = await this.anthropic.messages.create({
       model: 'claude-3-5-sonnet-20241022',
       max_tokens: 150,
-<<<<<<< HEAD
       temperature: 0.7,
-=======
-      temperature: 0.8,
->>>>>>> origin/main
-      system: this.getSystemPrompt(),
+      system: systemPrompt,
       messages: messages
     });
 
@@ -325,31 +227,19 @@ PRICING:`;
   /**
    * Get response from Google Gemini
    */
-  async getGeminiResponse(conversationHistory, userMessage) {
-<<<<<<< HEAD
-=======
-    // Build conversation history for Gemini
->>>>>>> origin/main
+  async getGeminiResponse(conversationHistory, userMessage, systemPrompt) {
     const history = conversationHistory.slice(0, -1).map(msg => ({
       role: msg.role === 'assistant' ? 'model' : 'user',
       parts: [{ text: msg.content }]
     }));
 
-<<<<<<< HEAD
     const chat = this.geminiModel.startChat({
       history: history,
       generationConfig: {
         temperature: 0.7,
-=======
-    // Start chat with history
-    const chat = this.geminiModel.startChat({
-      history: history,
-      generationConfig: {
-        temperature: 0.8,
->>>>>>> origin/main
         maxOutputTokens: 150,
       },
-      systemInstruction: this.getSystemPrompt()
+      systemInstruction: systemPrompt
     });
 
     const result = await chat.sendMessage(userMessage);
@@ -358,8 +248,4 @@ PRICING:`;
   }
 }
 
-<<<<<<< HEAD
 module.exports = AIService;
-=======
-module.exports = AIService;
->>>>>>> origin/main
