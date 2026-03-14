@@ -728,6 +728,11 @@ app.get('/onboarding', (req, res) => {
   }
 });
 
+// HVAC landing page variant (clean URL)
+app.get('/hvac', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'hvac.html'));
+});
+
 // Serve landing page for all other routes
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
