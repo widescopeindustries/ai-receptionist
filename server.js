@@ -426,6 +426,80 @@ app.get('/api/stats', (req, res) => {
 });
 
 /**
+ * Create a lead from the website form
+ */
+app.post('/api/leads', async (req, res) => {
+  try {
+    const {
+      name,
+      company,
+      email,
+      phone,
+      businessId = 'widescope',
+      source = 'website_form',
+      formType = 'custom_demo',
+      landingPath,
+      referrer,
+      pageVariant = 'generic-homepage-v1',
+      utm_source,
+      utm_medium,
+      utm_campaign,
+      utm_content,
+      utm_term,
+      gclid,
+      fbclid
+    } = req.body || {};
+
+    if (!company || !email || !phone) {
+      return res.status(400).json({ error: 'Company, email, and phone are required' });
+    }
+
+    const business = getBusinessById(businessId);
+    const lead = db.createOrUpdateLead(phone, {
+      name,
+      company,
+      email,
+      business_id: business.id,
+      interest_level: 'high',
+      status: 'new',
+      source,
+      form_type: formType,
+      landing_path: landingPath || '/',
+      referrer: referrer || null,
+      page_variant: pageVariant,
+      utm_source: utm_source || null,
+      utm_medium: utm_medium || null,
+      utm_campaign: utm_campaign || null,
+      utm_content: utm_content || null,
+      utm_term: utm_term || null,
+      gclid: gclid || null,
+      fbclid: fbclid || null
+    });
+
+    const sourceSummary = [
+      `Form Type: ${formType}`,
+      `Source: ${utm_source || source || 'direct'}`,
+      utm_medium ? `Medium: ${utm_medium}` : null,
+      utm_campaign ? `Campaign: ${utm_campaign}` : null,
+      landingPath ? `Landing Path: ${landingPath}` : null,
+      referrer ? `Referrer: ${referrer}` : null
+    ].filter(Boolean).join('\n');
+
+    await emailService.notifyNewLead(lead, {
+      duration: 0,
+      turns: 0,
+      businessName: business.name,
+      transcript: sourceSummary
+    }, business.notifyEmail);
+
+    res.status(201).json({ success: true, lead });
+  } catch (error) {
+    console.error('Create lead error:', error);
+    res.status(500).json({ error: 'Failed to create lead' });
+  }
+});
+
+/**
  * Get leads list
  */
 app.get('/api/leads', (req, res) => {
@@ -539,12 +613,13 @@ app.get('/dashboard', (req, res) => {
                 <th>Phone</th>
                 <th>Name</th>
                 <th>Company</th>
+                <th>Source</th>
                 <th>Status</th>
                 <th>Date</th>
               </tr>
             </thead>
             <tbody id="leads-table">
-              <tr><td colspan="5">Loading...</td></tr>
+              <tr><td colspan="6">Loading...</td></tr>
             </tbody>
           </table>
         </div>
@@ -580,27 +655,28 @@ app.get('/dashboard', (req, res) => {
             document.getElementById('active-customers').textContent = data.activeCustomers;
 
             // Render leads
-            const leadsHtml = data.recentLeads.map(lead => `
-              <tr>
-                <td>${lead.phone}</td>
-                <td>${lead.name || '-'}</td>
-                <td>${lead.company || '-'}</td>
-                <td><span class="status status-${lead.status}">${lead.status}</span></td>
-                <td>${new Date(lead.created_at).toLocaleDateString()}</td>
-              </tr>
-            `).join('') || '<tr><td colspan="5">No leads yet</td></tr>';
+            const leadsHtml = data.recentLeads.map(lead => [
+              '<tr>',
+              '<td>' + lead.phone + '</td>',
+              '<td>' + (lead.name || '-') + '</td>',
+              '<td>' + (lead.company || '-') + '</td>',
+              '<td>' + (lead.utm_source || lead.source || '-') + '</td>',
+              '<td><span class="status status-' + lead.status + '">' + lead.status + '</span></td>',
+              '<td>' + new Date(lead.created_at).toLocaleDateString() + '</td>',
+              '</tr>'
+            ].join('')).join('') || '<tr><td colspan="6">No leads yet</td></tr>';
             document.getElementById('leads-table').innerHTML = leadsHtml;
 
             // Render calls
-            const callsHtml = data.recentCalls.map(call => `
-              <tr>
-                <td>${call.phone || call.phone_from}</td>
-                <td>${call.duration_seconds || 0}s</td>
-                <td>${call.turn_count || 0}</td>
-                <td>${call.outcome || '-'}</td>
-                <td>${new Date(call.created_at).toLocaleDateString()}</td>
-              </tr>
-            `).join('') || '<tr><td colspan="5">No calls yet</td></tr>';
+            const callsHtml = data.recentCalls.map(call => [
+              '<tr>',
+              '<td>' + (call.phone || call.phone_from) + '</td>',
+              '<td>' + (call.duration_seconds || 0) + 's</td>',
+              '<td>' + (call.turn_count || 0) + '</td>',
+              '<td>' + (call.outcome || '-') + '</td>',
+              '<td>' + new Date(call.created_at).toLocaleDateString() + '</td>',
+              '</tr>'
+            ].join('')).join('') || '<tr><td colspan="5">No calls yet</td></tr>';
             document.getElementById('calls-table').innerHTML = callsHtml;
           } catch (err) {
             console.error('Failed to load stats:', err);
