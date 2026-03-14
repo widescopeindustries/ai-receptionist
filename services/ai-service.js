@@ -1,7 +1,7 @@
 const OpenAI = require('openai');
 const Anthropic = require('@anthropic-ai/sdk');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-const EmailService = require('./email-service');
+const emailService = require('./email-service');
 
 /**
  * AI Service - Handles AI conversation using OpenAI, Anthropic, or Google Gemini
@@ -10,7 +10,7 @@ const EmailService = require('./email-service');
 class AIService {
   constructor() {
     this.provider = process.env.AI_PROVIDER || 'openai';
-    this.emailService = new EmailService();
+    this.emailService = emailService;
 
     if (this.provider === 'openai') {
       this.openai = new OpenAI({
