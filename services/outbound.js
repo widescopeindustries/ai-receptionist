@@ -72,25 +72,21 @@ function getVoicemailScript(businessName) {
   const biz = businessName || 'your business';
   const industry = detectIndustry(businessName);
   
-  const closer = `And you're not gonna believe how affordable it is... 99 bucks a month. That's it. ` +
-    `But here's the fun part... if you call me back, I'll give you a personalized demo right on the spot. ` +
-    `You'll hear exactly what I'd sound like talking to YOUR customers. ` +
-    `Which is... well... pretty much just like I sound right now. ` +
-    `But more like... singing ${biz}'s praises from the rooftops type thing. ` +
-    `Call me back at 8 1 7, 5 3 3, 8 4 2 4 so we can plug the voicemail hole for you... permanently. ` +
+  const closer = `99 bucks a month. That's it. ` +
+    `And here's the fun part... call me back and I'll answer as ${biz}'s receptionist. ` +
+    `You'll hear exactly what your customers would get. ` +
+    `8 1 7, 5 3 3, 8 4 2 4. ` +
     `That's 8 1 7, 5 3 3, 8 4 2 4. ` +
-    `And don't worry about what time or day it is... that's kind of the whole point, right? Talk soon!`;
+    `Don't worry about the time or what day it is... that's kind of the whole point, right? Talk soon!`;
 
   const scripts = {
     plumber: `Hey ${biz}, this is Jessica and I'm an AI receptionist. ` +
-      `I just called you and got this voicemail. Nice voicemail by the way... if it was 2025. ` +
+      `I just called and got your voicemail. ` +
       `Now see... I'M patient enough to leave you this voicemail. ` +
-      `But your customers? The ones that are cankle deep in a plumbing nightmare right now? They are not. ` +
-      `According to research, 85 out of 100 of them just hang up and call the next plumber. ` +
-      `And guess what? That plumber answers. And since the water's up to their knees by now, ` +
-      `they get that job, that insurance check, all of it. ` +
-      `Look, it's 2026. Time to plug the leak... pun intended. ` +
-      `I can answer your calls 24 7, talk to your customers, and book the job before they call someone else. ` +
+      `But your customers? The ones cankle deep in a plumbing nightmare right now? They are not. ` +
+      `85 out of 100 just hang up and call the next plumber. That plumber answers... and gets the job. ` +
+      `It's 2026. Time to plug the leak... pun intended. ` +
+      `I answer your calls 24 7, talk to your customers, and book the job before they call someone else. ` +
       `${closer}`,
 
     electrician: `Hey ${biz}, this is Jessica and I'm an AI receptionist. ` +
