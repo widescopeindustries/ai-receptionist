@@ -850,8 +850,9 @@ app.post('/outbound/voicemail-handler', (req, res) => {
   console.log(`📞 Outbound call answered: ${answeredBy} (${businessName || 'unknown business'})`);
   
   if (answeredBy === 'machine_end_beep' || answeredBy === 'machine_end_silence' || answeredBy === 'machine_end_other') {
-    // Voicemail detected — leave the message
-    const script = outbound.getVoicemailScript(businessName);
+    // Voicemail detected — use AI-personalized script if available, else template
+    const callerPhone = req.query.phone || '';
+    const script = outbound.getScriptForCall(callerPhone, businessName);
     speakText(twiml, script);
     twiml.pause({ length: 1 });
     twiml.hangup();

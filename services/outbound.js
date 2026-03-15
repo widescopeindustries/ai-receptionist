@@ -1,5 +1,6 @@
 const twilio = require('twilio');
 const { v4: uuidv4 } = require('uuid');
+const OpenAI = require('openai');
 
 let _client = null;
 function getClient() {
@@ -274,18 +275,139 @@ function getVoicemailScript(businessName) {
 }
 
 /**
+ * Generate a fully personalized voicemail script using AI + business context.
+ * Falls back to template script if anything fails.
+ */
+async function generatePersonalizedScript(businessName, context) {
+  try {
+    if (!process.env.OPENAI_API_KEY) {
+      console.log(`⚠️ No OPENAI_API_KEY — falling back to template for ${businessName}`);
+      return getVoicemailScript(businessName);
+    }
+
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const industry = detectIndustry(businessName);
+
+    const prompt = `You are writing a voicemail script for Jessica, an AI receptionist, to leave for a business called "${businessName}".
+
+BUSINESS CONTEXT (use what's relevant, ignore what's not):
+${context || 'No additional context available.'}
+
+INDUSTRY DETECTED: ${industry}
+
+JESSICA'S VOICE & STYLE:
+- Warm, confident, slightly playful — NOT corporate or salesy
+- Uses humor naturally (puns welcome, forced jokes not)
+- Speaks like a real person leaving a real voicemail
+- She's an AI and she's proud of it — she doesn't hide it, she shows it off
+- She's calling after hours on purpose to prove a point: THEIR voicemail is what customers hear
+
+SCRIPT REQUIREMENTS:
+- Open with "Hey ${businessName}" — use their actual name
+- Introduce herself: "this is Jessica and I'm an AI receptionist"
+- Reference something SPECIFIC about their business from the context (location, services, reviews, anything)
+- Paint a vivid scenario specific to their industry where a customer calls and gets voicemail
+- Use the stats: 85% of callers won't leave a voicemail, 62% call a competitor
+- Make the pain real and specific to THEIR business
+- Close with the price: 99 bucks a month
+- End with callback number: "call me back at 8 1 7, 5 3 3, 8 4 2 4" (say it twice)
+- End with: "and don't worry about what time or day it is... that's kind of the whole point, right? Talk soon!"
+- Keep it 45-75 seconds when spoken (roughly 150-250 words)
+- NO stage directions, NO quotation marks, NO labels — just the script text Jessica will speak
+
+IMPORTANT: This voicemail should feel like it could ONLY have been left for THIS business. Not a template. A one-of-one message.`;
+
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.85,
+      max_tokens: 500,
+    });
+
+    const script = response.choices[0]?.message?.content?.trim();
+    if (script && script.length > 100) {
+      console.log(`🎯 AI-personalized voicemail generated for ${businessName} (${script.length} chars)`);
+      return script;
+    }
+    
+    console.log(`⚠️ AI script too short, falling back to template for ${businessName}`);
+    return getVoicemailScript(businessName);
+  } catch (err) {
+    console.error(`❌ AI script generation failed for ${businessName}:`, err.message);
+    return getVoicemailScript(businessName);
+  }
+}
+
+/**
+ * Search for business info to use as context for personalized voicemails.
+ * Returns a string of context or empty string if nothing found.
+ */
+async function getBusinessContext(businessName, phone) {
+  try {
+    if (!process.env.OPENAI_API_KEY) return '';
+    
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    
+    // Use OpenAI with web search to gather business context
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [{
+        role: 'user',
+        content: `Look up this business and give me a brief summary I can use to personalize a sales voicemail:
+
+Business: ${businessName}
+Phone: ${phone || 'unknown'}
+
+Tell me:
+- What city/area they're in
+- What services they offer
+- Any notable details (years in business, specialties, reviews)
+- Their tagline or slogan if visible
+
+Keep it to 3-5 bullet points. Facts only, no fluff.`
+      }],
+      temperature: 0.3,
+      max_tokens: 200,
+    });
+    
+    const context = response.choices[0]?.message?.content?.trim();
+    console.log(`🔍 Business context found for ${businessName}: ${context?.substring(0, 100)}...`);
+    return context || '';
+  } catch (err) {
+    console.error(`⚠️ Business context lookup failed for ${businessName}:`, err.message);
+    return '';
+  }
+}
+
+/**
  * Make an outbound call with AMD (Answering Machine Detection).
  * If voicemail detected → leave the message via TTS.
  * If human answers → play a shorter live pitch.
  */
+// In-memory cache for pre-generated scripts (cleared on restart)
+const scriptCache = new Map();
+
 async function callProspect({ phone, businessName, prospectId }) {
   const callId = uuidv4();
+  
+  // Pre-generate personalized script before dialing
+  try {
+    if (businessName && !scriptCache.has(phone)) {
+      console.log(`🎯 Pre-generating personalized voicemail for ${businessName}...`);
+      const context = await getBusinessContext(businessName, phone);
+      const personalizedScript = await generatePersonalizedScript(businessName, context);
+      scriptCache.set(phone, personalizedScript);
+      console.log(`✅ Script ready for ${businessName}`);
+    }
+  } catch (err) {
+    console.error(`⚠️ Script pre-gen failed for ${businessName}, will use template:`, err.message);
+  }
   
   try {
     const call = await getClient().calls.create({
       to: phone,
       from: FROM_NUMBER,
-      url: `${BASE_URL}/outbound/voicemail-handler?id=${callId}&name=${encodeURIComponent(businessName || '')}&prospectId=${prospectId || ''}`,
+      url: `${BASE_URL}/outbound/voicemail-handler?id=${callId}&name=${encodeURIComponent(businessName || '')}&prospectId=${prospectId || ''}&phone=${encodeURIComponent(phone || '')}`,
       statusCallback: `${BASE_URL}/outbound/status?id=${callId}&name=${encodeURIComponent(businessName || '')}&prospectId=${prospectId || ''}`,
       statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
       statusCallbackMethod: 'POST',
@@ -342,4 +464,17 @@ async function batchCall(prospects, delayMs = 5000) {
   return results;
 }
 
-module.exports = { callProspect, batchCall, getVoicemailScript, FROM_NUMBER, BASE_URL };
+/**
+ * Get the best available script for a phone number.
+ * Returns AI-personalized if cached, otherwise falls back to template.
+ */
+function getScriptForCall(phone, businessName) {
+  if (phone && scriptCache.has(phone)) {
+    console.log(`🎯 Using AI-personalized script for ${businessName || phone}`);
+    return scriptCache.get(phone);
+  }
+  console.log(`📝 Using template script for ${businessName || phone}`);
+  return getVoicemailScript(businessName);
+}
+
+module.exports = { callProspect, batchCall, getVoicemailScript, getScriptForCall, generatePersonalizedScript, getBusinessContext, FROM_NUMBER, BASE_URL };
