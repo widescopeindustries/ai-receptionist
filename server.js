@@ -908,7 +908,43 @@ app.post('/outbound/response', (req, res) => {
       `And remember, you can call this number anytime, 8 1 7, 5 3 3, 8 4 2 4. I'm always here. Talk soon!`
     );
     twiml.hangup();
-    // TODO: trigger demo drop + SMS with link
+
+    // Fire demo drop + SMS async after TwiML response is sent
+    const toPhone = req.body.To || req.body.Called || '';  // The prospect's number
+    if (toPhone) {
+      setImmediate(async () => {
+        try {
+          // 1. Generate demo slug
+          const slug = generateDemoSlug(businessName, '');
+          const demoUrl = `${outbound.BASE_URL}/demo/${slug}`;
+
+          // 2. Create DB record and kick off pipeline
+          db.createProspectDemo({
+            slug,
+            prospect_url: null,
+            prospect_name: businessName,
+            business_name: businessName,
+            source: 'outbound_call'
+          });
+          runDemoDropPipeline(slug).catch(err =>
+            console.error(`❌ Demo pipeline error for ${slug}:`, err)
+          );
+
+          // 3. Send SMS with demo link
+          const twilioClient = require('twilio')(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+          await twilioClient.messages.create({
+            to: toPhone,
+            from: outbound.FROM_NUMBER,
+            body: `Hey! This is Jessica from AI Always Answer 👋 Here's your personalized demo — see exactly how I'd answer calls for ${businessName || 'your business'}:\n\n${demoUrl}\n\nQuestions? Call or text 817-533-8424 anytime.`
+          });
+          console.log(`📱 Demo SMS sent to ${toPhone} → ${demoUrl}`);
+        } catch (err) {
+          console.error(`❌ Demo drop / SMS failed for ${businessName}:`, err.message);
+        }
+      });
+    } else {
+      console.warn(`⚠️ No prospect phone in request body — cannot send SMS. Body keys: ${Object.keys(req.body).join(', ')}`);
+    }
   } else {
     speakText(twiml,
       `No problem at all! If you ever want to see what it looks like, just call 8 1 7, 5 3 3, 8 4 2 4 anytime. ` +
