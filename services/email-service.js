@@ -2,6 +2,7 @@ const { Resend } = require('resend');
 
 /**
  * Email Service - Notifications for leads and customers using Resend
+ * Supports multi-tenant with per-business notification routing
  */
 class EmailService {
   constructor() {
@@ -15,39 +16,43 @@ class EmailService {
     this.notifyEmail = process.env.NOTIFY_EMAIL || 'info@widescopeindustries.com';
   }
 
-  /**
-   * Check if email is configured
-   */
   isConfigured() {
     return this.resend !== null;
   }
 
   /**
    * Notify about new lead/call
+   * @param {Object} lead - Lead record
+   * @param {Object} callData - Call details (duration, turns, transcript, businessName)
+   * @param {string} [recipientOverride] - Business-specific email to notify
    */
-  async notifyNewLead(lead, callData) {
+  async notifyNewLead(lead, callData, recipientOverride = null) {
     if (!this.resend) return false;
 
-    const subject = `🔔 New Lead: ${lead.phone}`;
+    const businessName = callData.businessName || 'AI Receptionist';
+    const subject = `🔔 [${businessName}] New Lead: ${lead.phone}`;
     const html = `
-      <h2>New AI Receptionist Lead</h2>
+      <h2>New ${businessName} Lead</h2>
       <h3>Contact Info</h3>
       <p><strong>Phone:</strong> ${lead.phone}</p>
       <p><strong>Name:</strong> ${lead.name || 'Not provided'}</p>
       <p><strong>Email:</strong> ${lead.email || 'Not provided'}</p>
       <p><strong>Company:</strong> ${lead.company || 'Not provided'}</p>
+      ${lead.address ? `<p><strong>Address:</strong> ${lead.address}</p>` : ''}
+      ${lead.notes ? `<p><strong>Notes:</strong> ${lead.notes}</p>` : ''}
       <h3>Call Details</h3>
       <ul>
         <li><strong>Duration:</strong> ${callData.duration || 0} seconds</li>
         <li><strong>Turns:</strong> ${callData.turns || 0}</li>
+        <li><strong>Interest Level:</strong> ${lead.interest_level || 'Unknown'}</li>
       </ul>
-      ${callData.transcript ? `<h3>Transcript</h3><pre>${callData.transcript}</pre>` : ''}
+      ${callData.transcript ? `<h3>Transcript</h3><pre style="background: #f5f5f5; padding: 15px; border-radius: 5px; white-space: pre-wrap;">${callData.transcript}</pre>` : ''}
     `;
 
     try {
       await this.resend.emails.send({
         from: 'AI Always Answer <leads@aialwaysanswer.com>',
-        to: [this.notifyEmail],
+        to: [recipientOverride || this.notifyEmail],
         subject: subject,
         html: html
       });
@@ -59,7 +64,7 @@ class EmailService {
   }
 
   /**
-   * Send setup link to prospect
+   * Send setup link to prospect (for AI Always Answer business)
    */
   async sendSetupLink(toEmail, name) {
     if (!this.resend) return false;
@@ -71,7 +76,7 @@ class EmailService {
       await this.resend.emails.send({
         from: 'AI Always Answer <sales@aialwaysanswer.com>',
         to: [toEmail],
-        subject: "Your AI Receptionist Setup Link 🚀",
+        subject: "Your AI Receptionist Setup Link",
         html: `
           <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
             <h2 style="color: #2563eb;">Nice talking to you!</h2>

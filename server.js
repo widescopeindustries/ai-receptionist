@@ -9,6 +9,7 @@ const db = require('./services/database');
 const stripeService = require('./services/stripe-service');
 const emailService = require('./services/email-service');
 const calendarService = require('./services/google-calendar');
+const { getBusinessByNumber, getBusinessById } = require('./config/businesses');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -59,32 +60,34 @@ const aiService = new AIService();
  * Main webhook endpoint - Twilio calls this when someone dials your number
  */
 app.post('/voice/incoming', async (req, res) => {
-  console.log('📞 Incoming call from:', req.body.From);
-
   const twiml = new VoiceResponse();
   const callSid = req.body.CallSid;
   const phoneFrom = req.body.From;
   const phoneTo = req.body.To;
 
-  // Create call record in database
-  const { callId, leadId } = db.createCall(callSid, phoneFrom, phoneTo);
+  // Look up business config by the Twilio number that was called
+  const business = getBusinessByNumber(phoneTo);
+  console.log(`📞 Incoming call from ${phoneFrom} → ${business.name} (${phoneTo})`);
+
+  // Create call record in database (with business_id)
+  const { callId, leadId } = db.createCall(callSid, phoneFrom, phoneTo, business.id);
 
   // Initialize conversation for this call
   const conversationManager = new ConversationManager(callSid);
   conversationManager.leadId = leadId;
   conversationManager.callId = callId;
+  conversationManager.businessId = business.id;
+  conversationManager.businessConfig = business;
   conversations.set(callSid, conversationManager);
 
-  // Greet the caller
-  const greeting = "AI Always Answer. I don't do voicemail, I do business. Who am I speaking with?";
-
+  // Greet the caller using business-specific greeting and voice
   twiml.say({
-    voice: 'Polly.Danielle-Neural',
+    voice: business.voice,
     language: 'en-US'
-  }, greeting);
+  }, business.greeting);
 
   // Add the greeting to conversation history
-  conversationManager.addMessage('assistant', greeting);
+  conversationManager.addMessage('assistant', business.greeting);
 
   // Start listening for caller's response
   twiml.gather({
@@ -124,20 +127,21 @@ app.post('/voice/process-speech', async (req, res) => {
     // Add user message to history
     if (userSpeech) {
       conversationManager.addMessage('user', userSpeech);
-      // Extract lead info from speech
-      extractLeadInfo(userSpeech, conversationManager.leadId);
+      // Extract lead info from speech (name, email, company, location)
+      extractLeadInfo(userSpeech, conversationManager.leadId, conversationManager.businessId);
     } else {
       twiml.redirect('/voice/no-input');
       return res.send(twiml.toString());
     }
 
-    // Get AI response
+    // Get AI response using business-specific prompt
     const aiResponse = await aiService.getResponse(
       conversationManager.getHistory(),
-      userSpeech
+      userSpeech,
+      conversationManager.businessConfig?.systemPrompt
     );
 
-    console.log('🤖 AI responds:', aiResponse);
+    console.log(`🤖 [${conversationManager.businessId || 'default'}] AI responds:`, aiResponse);
 
     // Handle tool calls if any
     let finalSpeechResponse = typeof aiResponse === 'string' ? aiResponse : aiResponse.content;
@@ -169,9 +173,10 @@ app.post('/voice/process-speech', async (req, res) => {
       conversationManager.addMessage('assistant', finalSpeechResponse);
     }
 
-    // Speak the AI response
+    // Speak the AI response using business-specific voice
+    const voice = conversationManager.businessConfig?.voice || 'Polly.Danielle-Neural';
     twiml.say({
-      voice: 'Polly.Danielle-Neural',
+      voice: voice,
       language: 'en-US'
     }, finalSpeechResponse);
 
@@ -421,6 +426,83 @@ app.get('/api/stats', (req, res) => {
 });
 
 /**
+ * Create a lead from the website form
+ */
+app.post('/api/leads', async (req, res) => {
+  try {
+    const {
+      name,
+      company,
+      email,
+      phone,
+      notes,
+      businessId = 'widescope',
+      source = 'website_form',
+      formType = 'custom_demo',
+      landingPath,
+      referrer,
+      pageVariant = 'generic-homepage-v2',
+      utm_source,
+      utm_medium,
+      utm_campaign,
+      utm_content,
+      utm_term,
+      gclid,
+      fbclid
+    } = req.body || {};
+
+    if (!company || !email || !phone) {
+      return res.status(400).json({ error: 'Company, email, and phone are required' });
+    }
+
+    const business = getBusinessById(businessId);
+    const lead = db.createOrUpdateLead(phone, {
+      name,
+      company,
+      email,
+      business_id: business.id,
+      notes,
+      interest_level: 'high',
+      status: 'new',
+      source,
+      form_type: formType,
+      landing_path: landingPath || '/',
+      referrer: referrer || null,
+      page_variant: pageVariant,
+      utm_source: utm_source || null,
+      utm_medium: utm_medium || null,
+      utm_campaign: utm_campaign || null,
+      utm_content: utm_content || null,
+      utm_term: utm_term || null,
+      gclid: gclid || null,
+      fbclid: fbclid || null
+    });
+
+    const sourceSummary = [
+      `Form Type: ${formType}`,
+      `Source: ${utm_source || source || 'direct'}`,
+      utm_medium ? `Medium: ${utm_medium}` : null,
+      utm_campaign ? `Campaign: ${utm_campaign}` : null,
+      notes ? `Notes: ${notes}` : null,
+      landingPath ? `Landing Path: ${landingPath}` : null,
+      referrer ? `Referrer: ${referrer}` : null
+    ].filter(Boolean).join('\n');
+
+    await emailService.notifyNewLead(lead, {
+      duration: 0,
+      turns: 0,
+      businessName: business.name,
+      transcript: sourceSummary
+    }, business.notifyEmail);
+
+    res.status(201).json({ success: true, lead });
+  } catch (error) {
+    console.error('Create lead error:', error);
+    res.status(500).json({ error: 'Failed to create lead' });
+  }
+});
+
+/**
  * Get leads list
  */
 app.get('/api/leads', (req, res) => {
@@ -534,12 +616,13 @@ app.get('/dashboard', (req, res) => {
                 <th>Phone</th>
                 <th>Name</th>
                 <th>Company</th>
+                <th>Source</th>
                 <th>Status</th>
                 <th>Date</th>
               </tr>
             </thead>
             <tbody id="leads-table">
-              <tr><td colspan="5">Loading...</td></tr>
+              <tr><td colspan="6">Loading...</td></tr>
             </tbody>
           </table>
         </div>
@@ -575,27 +658,28 @@ app.get('/dashboard', (req, res) => {
             document.getElementById('active-customers').textContent = data.activeCustomers;
 
             // Render leads
-            const leadsHtml = data.recentLeads.map(lead => `
-              <tr>
-                <td>${lead.phone}</td>
-                <td>${lead.name || '-'}</td>
-                <td>${lead.company || '-'}</td>
-                <td><span class="status status-${lead.status}">${lead.status}</span></td>
-                <td>${new Date(lead.created_at).toLocaleDateString()}</td>
-              </tr>
-            `).join('') || '<tr><td colspan="5">No leads yet</td></tr>';
+            const leadsHtml = data.recentLeads.map(lead => [
+              '<tr>',
+              '<td>' + lead.phone + '</td>',
+              '<td>' + (lead.name || '-') + '</td>',
+              '<td>' + (lead.company || '-') + '</td>',
+              '<td>' + (lead.utm_source || lead.source || '-') + '</td>',
+              '<td><span class="status status-' + lead.status + '">' + lead.status + '</span></td>',
+              '<td>' + new Date(lead.created_at).toLocaleDateString() + '</td>',
+              '</tr>'
+            ].join('')).join('') || '<tr><td colspan="6">No leads yet</td></tr>';
             document.getElementById('leads-table').innerHTML = leadsHtml;
 
             // Render calls
-            const callsHtml = data.recentCalls.map(call => `
-              <tr>
-                <td>${call.phone || call.phone_from}</td>
-                <td>${call.duration_seconds || 0}s</td>
-                <td>${call.turn_count || 0}</td>
-                <td>${call.outcome || '-'}</td>
-                <td>${new Date(call.created_at).toLocaleDateString()}</td>
-              </tr>
-            `).join('') || '<tr><td colspan="5">No calls yet</td></tr>';
+            const callsHtml = data.recentCalls.map(call => [
+              '<tr>',
+              '<td>' + (call.phone || call.phone_from) + '</td>',
+              '<td>' + (call.duration_seconds || 0) + 's</td>',
+              '<td>' + (call.turn_count || 0) + '</td>',
+              '<td>' + (call.outcome || '-') + '</td>',
+              '<td>' + new Date(call.created_at).toLocaleDateString() + '</td>',
+              '</tr>'
+            ].join('')).join('') || '<tr><td colspan="5">No calls yet</td></tr>';
             document.getElementById('calls-table').innerHTML = callsHtml;
           } catch (err) {
             console.error('Failed to load stats:', err);
@@ -647,6 +731,11 @@ app.get('/onboarding', (req, res) => {
   }
 });
 
+// HVAC landing page variant (clean URL)
+app.get('/hvac', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'hvac.html'));
+});
+
 // Serve landing page for all other routes
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -657,16 +746,16 @@ app.get('*', (req, res) => {
 /**
  * Extract lead info from speech using simple pattern matching
  */
-function extractLeadInfo(speech, leadId) {
+function extractLeadInfo(speech, leadId, businessId) {
   const speechLower = speech.toLowerCase();
   const updates = {};
 
-  // Extract name (look for "my name is", "I'm", "this is")
+  // Extract name
   const namePatterns = [
-    /my name is ([a-z]+)/i,
-    /i'm ([a-z]+)/i,
-    /this is ([a-z]+)/i,
-    /call me ([a-z]+)/i
+    /my name is (\w+(?:\s+\w+)?)/i,
+    /i'm (\w+)/i,
+    /this is (\w+)/i,
+    /call me (\w+)/i
   ];
 
   for (const pattern of namePatterns) {
@@ -695,20 +784,41 @@ function extractLeadInfo(speech, leadId) {
   const emailPattern = /([a-zA-Z0-9._%+-]+\s*@\s*[a-zA-Z0-9.-]+\s*\.\s*[a-zA-Z]{2,4})/i;
   const emailMatch = speech.match(emailPattern);
   if (emailMatch) {
-    updates.email = emailMatch[1].replace(/\s+/g, ''); // Remove spaces
+    updates.email = emailMatch[1].replace(/\s+/g, '');
   }
 
-  // Detect interest level based on keywords
-  if (speechLower.includes('pricing') || speechLower.includes('how much') || speechLower.includes('cost')) {
+  // Detect urgency/interest based on keywords
+  const emergencyKeywords = ['emergency', 'flooding', 'sewage', 'backing up', 'overflow', 'backed up', 'urgent', 'asap'];
+  const highInterestKeywords = ['pricing', 'how much', 'cost', 'quote', 'schedule', 'appointment', 'need', 'today'];
+  const mediumInterestKeywords = ['interested', 'tell me more', 'information', 'question'];
+
+  if (emergencyKeywords.some(kw => speechLower.includes(kw))) {
+    updates.interest_level = 'emergency';
+  } else if (highInterestKeywords.some(kw => speechLower.includes(kw))) {
     updates.interest_level = 'high';
-  } else if (speechLower.includes('interested') || speechLower.includes('tell me more')) {
+  } else if (mediumInterestKeywords.some(kw => speechLower.includes(kw))) {
     updates.interest_level = 'medium';
   }
 
+  // For septic business, extract location mentions
+  if (businessId === 'fixsepticnow') {
+    const cities = ['conroe', 'woodlands', 'the woodlands', 'huntsville', 'spring', 'tomball', 'magnolia', 'willis', 'new waverly', 'houston', 'montgomery', 'cleveland', 'humble', 'kingwood', 'atascocita', 'porter', 'splendora', 'cut and shoot'];
+    for (const city of cities) {
+      if (speechLower.includes(city)) {
+        updates.notes = (updates.notes || '') + `Location: ${city}. `;
+        break;
+      }
+    }
+  }
+
   // Update lead in database
-  if (Object.keys(updates).length > 0) {
-    db.db.prepare(`UPDATE leads SET ${Object.keys(updates).map(k => `${k} = ?`).join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`)
-      .run(...Object.values(updates), leadId);
+  if (Object.keys(updates).length > 0 && leadId) {
+    try {
+      db.db.prepare(`UPDATE leads SET ${Object.keys(updates).map(k => `${k} = ?`).join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`)
+        .run(...Object.values(updates), leadId);
+    } catch (e) {
+      console.error('Error updating lead info:', e);
+    }
   }
 }
 
@@ -730,20 +840,22 @@ async function saveCallData(callSid, conversationManager) {
     transcript: transcript
   });
 
-  // Get lead and send notification
+  // Get lead and send notification to the correct business email
   const call = db.getCallBySid(callSid);
+  const business = conversationManager.businessConfig || getBusinessById('widescope');
   if (call && call.lead_id) {
     const lead = db.getLeads().find(l => l.id === call.lead_id);
     if (lead) {
-      // 1. Notify Lyndon (the owner)
       await emailService.notifyNewLead(lead, {
         duration: Math.floor(history.duration / 1000),
         turns: history.turnCount,
-        transcript: transcript
-      });
+        transcript: transcript,
+        businessName: business?.name || 'AI Receptionist',
+        businessId: business?.id || 'unknown'
+      }, business?.notifyEmail);
 
-      // 2. If email was captured, send the setup link to the prospect
-      if (lead.email) {
+      // For AI Always Answer business, also send setup link if email captured
+      if (business?.id === 'widescope' && lead.email) {
         await emailService.sendSetupLink(lead.email, lead.name || lead.company || 'there');
       }
     }

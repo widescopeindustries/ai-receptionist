@@ -32,9 +32,23 @@ class DatabaseService {
         name TEXT,
         email TEXT,
         company TEXT,
+        business_id TEXT DEFAULT 'widescope',
+        address TEXT,
         interest_level TEXT DEFAULT 'unknown',
         notes TEXT,
         status TEXT DEFAULT 'new',
+        source TEXT,
+        form_type TEXT,
+        landing_path TEXT,
+        referrer TEXT,
+        page_variant TEXT,
+        utm_source TEXT,
+        utm_medium TEXT,
+        utm_campaign TEXT,
+        utm_content TEXT,
+        utm_term TEXT,
+        gclid TEXT,
+        fbclid TEXT,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT DEFAULT CURRENT_TIMESTAMP
       )
@@ -77,6 +91,23 @@ class DatabaseService {
       )
     `);
 
+    // Add columns if they don't exist (migration for existing DBs)
+    try { this.db.exec('ALTER TABLE leads ADD COLUMN business_id TEXT DEFAULT "widescope"'); } catch (e) { /* column exists */ }
+    try { this.db.exec('ALTER TABLE leads ADD COLUMN address TEXT'); } catch (e) { /* column exists */ }
+    try { this.db.exec('ALTER TABLE leads ADD COLUMN source TEXT'); } catch (e) { /* column exists */ }
+    try { this.db.exec('ALTER TABLE leads ADD COLUMN form_type TEXT'); } catch (e) { /* column exists */ }
+    try { this.db.exec('ALTER TABLE leads ADD COLUMN landing_path TEXT'); } catch (e) { /* column exists */ }
+    try { this.db.exec('ALTER TABLE leads ADD COLUMN referrer TEXT'); } catch (e) { /* column exists */ }
+    try { this.db.exec('ALTER TABLE leads ADD COLUMN page_variant TEXT'); } catch (e) { /* column exists */ }
+    try { this.db.exec('ALTER TABLE leads ADD COLUMN utm_source TEXT'); } catch (e) { /* column exists */ }
+    try { this.db.exec('ALTER TABLE leads ADD COLUMN utm_medium TEXT'); } catch (e) { /* column exists */ }
+    try { this.db.exec('ALTER TABLE leads ADD COLUMN utm_campaign TEXT'); } catch (e) { /* column exists */ }
+    try { this.db.exec('ALTER TABLE leads ADD COLUMN utm_content TEXT'); } catch (e) { /* column exists */ }
+    try { this.db.exec('ALTER TABLE leads ADD COLUMN utm_term TEXT'); } catch (e) { /* column exists */ }
+    try { this.db.exec('ALTER TABLE leads ADD COLUMN gclid TEXT'); } catch (e) { /* column exists */ }
+    try { this.db.exec('ALTER TABLE leads ADD COLUMN fbclid TEXT'); } catch (e) { /* column exists */ }
+    try { this.db.exec('ALTER TABLE calls ADD COLUMN business_id TEXT DEFAULT "widescope"'); } catch (e) { /* column exists */ }
+
     // Create indexes
     this.db.exec(`
       CREATE INDEX IF NOT EXISTS idx_leads_phone ON leads(phone);
@@ -101,12 +132,35 @@ class DatabaseService {
       const updates = [];
       const values = [];
 
-      if (data.name) { updates.push('name = ?'); values.push(data.name); }
-      if (data.email) { updates.push('email = ?'); values.push(data.email); }
-      if (data.company) { updates.push('company = ?'); values.push(data.company); }
-      if (data.interest_level) { updates.push('interest_level = ?'); values.push(data.interest_level); }
-      if (data.notes) { updates.push('notes = ?'); values.push(data.notes); }
-      if (data.status) { updates.push('status = ?'); values.push(data.status); }
+      const fieldMap = {
+        name: 'name',
+        email: 'email',
+        company: 'company',
+        business_id: 'business_id',
+        address: 'address',
+        interest_level: 'interest_level',
+        notes: 'notes',
+        status: 'status',
+        source: 'source',
+        form_type: 'form_type',
+        landing_path: 'landing_path',
+        referrer: 'referrer',
+        page_variant: 'page_variant',
+        utm_source: 'utm_source',
+        utm_medium: 'utm_medium',
+        utm_campaign: 'utm_campaign',
+        utm_content: 'utm_content',
+        utm_term: 'utm_term',
+        gclid: 'gclid',
+        fbclid: 'fbclid'
+      };
+
+      for (const [key, column] of Object.entries(fieldMap)) {
+        if (data[key]) {
+          updates.push(`${column} = ?`);
+          values.push(data[key]);
+        }
+      }
 
       if (updates.length > 0) {
         updates.push('updated_at = CURRENT_TIMESTAMP');
@@ -118,17 +172,35 @@ class DatabaseService {
     } else {
       const id = uuidv4();
       this.db.prepare(`
-        INSERT INTO leads (id, phone, name, email, company, interest_level, notes, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO leads (
+          id, phone, name, email, company, business_id, address, interest_level, notes, status,
+          source, form_type, landing_path, referrer, page_variant,
+          utm_source, utm_medium, utm_campaign, utm_content, utm_term, gclid, fbclid
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         id,
         phone,
         data.name || null,
         data.email || null,
         data.company || null,
+        data.business_id || 'widescope',
+        data.address || null,
         data.interest_level || 'unknown',
         data.notes || null,
-        data.status || 'new'
+        data.status || 'new',
+        data.source || null,
+        data.form_type || null,
+        data.landing_path || null,
+        data.referrer || null,
+        data.page_variant || null,
+        data.utm_source || null,
+        data.utm_medium || null,
+        data.utm_campaign || null,
+        data.utm_content || null,
+        data.utm_term || null,
+        data.gclid || null,
+        data.fbclid || null
       );
 
       return this.db.prepare('SELECT * FROM leads WHERE id = ?').get(id);
@@ -164,16 +236,16 @@ class DatabaseService {
   /**
    * Create a call record
    */
-  createCall(callSid, phoneFrom, phoneTo) {
+  createCall(callSid, phoneFrom, phoneTo, businessId = 'widescope') {
     const id = uuidv4();
 
     // Get or create lead
-    const lead = this.createOrUpdateLead(phoneFrom);
+    const lead = this.createOrUpdateLead(phoneFrom, { business_id: businessId });
 
     this.db.prepare(`
-      INSERT INTO calls (id, call_sid, lead_id, phone_from, phone_to)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(id, callSid, lead.id, phoneFrom, phoneTo);
+      INSERT INTO calls (id, call_sid, lead_id, phone_from, phone_to, business_id)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(id, callSid, lead.id, phoneFrom, phoneTo, businessId);
 
     return { callId: id, leadId: lead.id };
   }
