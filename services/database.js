@@ -167,6 +167,7 @@ class DatabaseService {
     try { this.db.exec('ALTER TABLE leads ADD COLUMN gclid TEXT'); } catch (e) { /* column exists */ }
     try { this.db.exec('ALTER TABLE leads ADD COLUMN fbclid TEXT'); } catch (e) { /* column exists */ }
     try { this.db.exec('ALTER TABLE calls ADD COLUMN business_id TEXT DEFAULT "widescope"'); } catch (e) { /* column exists */ }
+    try { this.db.exec('ALTER TABLE calls ADD COLUMN recording_url TEXT'); } catch (e) { /* column exists */ }
 
     // Create indexes
     this.db.exec(`
@@ -323,6 +324,7 @@ class DatabaseService {
     if (data.transcript) { updates.push('transcript = ?'); values.push(data.transcript); }
     if (data.summary) { updates.push('summary = ?'); values.push(data.summary); }
     if (data.outcome) { updates.push('outcome = ?'); values.push(data.outcome); }
+    if (data.recording_url) { updates.push('recording_url = ?'); values.push(data.recording_url); }
 
     if (updates.length > 0) {
       values.push(callSid);

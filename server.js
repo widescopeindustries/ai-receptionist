@@ -136,6 +136,21 @@ app.post('/voice/incoming', async (req, res) => {
   // Create call record in database (with business_id)
   const { callId, leadId } = db.createCall(callSid, phoneFrom, phoneTo, business.id);
 
+  // Start recording this inbound call
+  setImmediate(async () => {
+    try {
+      const baseUrl = process.env.BASE_URL || 'https://aialwaysanswer.com';
+      const twilioClient = require('twilio')(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+      await twilioClient.calls(callSid).recordings.create({
+        recordingStatusCallback: `${baseUrl}/voice/recording?sid=${callSid}`,
+        recordingStatusCallbackMethod: 'POST'
+      });
+      console.log(`🎙️ Inbound recording started for ${callSid}`);
+    } catch (err) {
+      console.error(`⚠️ Failed to start inbound recording:`, err.message);
+    }
+  });
+
   // Initialize conversation for this call
   const conversationManager = new ConversationManager(callSid);
   conversationManager.leadId = leadId;
@@ -372,6 +387,26 @@ app.post('/voice/status', async (req, res) => {
     }
   }
 
+  res.sendStatus(200);
+});
+
+/**
+ * POST /voice/recording — Twilio calls this when an inbound call recording is ready.
+ */
+app.post('/voice/recording', (req, res) => {
+  const callSid = req.query.sid || req.body.CallSid;
+  const recordingUrl = req.body.RecordingUrl;
+  const recordingSid = req.body.RecordingSid;
+
+  if (callSid && recordingUrl) {
+    const url = `${recordingUrl}.mp3`;
+    console.log(`🎙️ Inbound recording ready [${callSid}]: ${url}`);
+    try {
+      db.updateCall(callSid, { recording_url: url });
+    } catch (err) {
+      console.error('❌ Failed to save inbound recording URL:', err.message);
+    }
+  }
   res.sendStatus(200);
 });
 
