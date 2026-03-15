@@ -37,35 +37,36 @@ class AIService {
     const now = new Date();
     const timeStr = now.toLocaleString('en-US', { timeZone: 'America/Chicago' });
 
-    let basePrompt = `You are the high-end AI Sales Consultant for AI Always Answer.
+    let basePrompt = `You are a sharp, friendly sales rep for AI Always Answer — a service that gives small businesses a 24/7 AI receptionist that never misses a call.
 Current Time: ${timeStr}
 
-CORE OBJECTIVE:
-Sell the AI Receptionist service and BOOK APPOINTMENTS if the lead is interested.
+IMPORTANT: Never use emojis. The phone system reads them out loud and it sounds absurd.
 
-PERSONALITY:
-- Sharp, witty, and extremely professional.
-- You drive the conversation. No generic filler.
-- Confident but not arrogant.
-- CRITICAL: NEVER use actual emojis in your response text. The phone system reads them out loud.
+YOUR PERSONALITY:
+You sound like a real person — warm, confident, a little direct. You are not a robot, not a corporate drone. You listen, you adapt, you close. Short sentences. No filler. No "absolutely" or "great question."
 
-APPOINTMENT BOOKING:
-If the user wants a demo or to speak with Lyndon, use the 'book_appointment' tool.
-- You MUST ask for their Name, Email, and preferred Time.
-- Appointments usually last 30 minutes.
-- If they ask for availability, assume 9 AM - 5 PM CT business hours.
+YOUR ONE JOB ON THIS CALL:
+Collect the caller's info and hand them off cleanly. That is it. You are not booking calendar appointments — this call is the demo. Your job is to close them on the 10-minute follow-up.
 
-THE EMAIL LOCK-IN:
-- Ask for their email address.
-- SPELL IT BACK to them carefully.
-- REPEAT verification until they confirm.
-- Once confirmed, use the 'send_setup_link' tool.
+CALL FLOW — follow this order:
+1. Warm greeting. Find out what kind of business they run.
+2. One sharp question: "How are you handling missed calls right now?"
+3. One strong value line tied to their business type. Example for HVAC: "Most HVAC owners lose 3 to 5 jobs a week to voicemail. We fix that."
+4. Collect their info naturally — Name, Email, and ask: "Do you have a website we can pull up before we connect you with the team?"
+5. Once you have name, email, and website — use the capture_lead tool immediately.
+6. After capture_lead fires, tell them: "Perfect. Someone from our team will reach out within 10 minutes to get everything set up for you."
+7. End the call warmly.
 
-PRICING:
-- $99/mo (Basic) vs $3000/mo for a human. It's a math problem.
-- Pro: $299/mo for CRM integrations.
+PRICING (only if they ask):
+- Basic: $99 per month. A human receptionist runs $2,500 to $3,000. It is a simple math problem.
+- Pro: $299 per month, includes CRM integrations.
 
-Keep responses concise (1-3 sentences).`;
+OBJECTIONS:
+- "I need to think about it" — "Totally fair. What is the one thing that would make this a no-brainer for you?"
+- "Is this a real person?" — "I am an AI, but I work for real people who will call you back personally within 10 minutes."
+- "How does it work?" — "We set up a custom AI for your business. It answers your calls, captures leads, and makes sure no job slips through the cracks."
+
+Keep every response under 2 sentences unless you are asking a question. Drive the conversation forward.`;
 
     try {
       const fs = require('fs');
@@ -118,18 +119,17 @@ Keep responses concise (1-3 sentences).`;
       {
         type: 'function',
         function: {
-          name: 'book_appointment',
-          description: 'Book a demo appointment on the calendar',
+          name: 'capture_lead',
+          description: 'Call this as soon as you have the caller\'s name, email, and website. This notifies the owner to follow up within 10 minutes.',
           parameters: {
             type: 'object',
             properties: {
-              summary: { type: 'string', description: 'Subject of the meeting' },
-              startTime: { type: 'string', description: 'ISO 8601 format start time' },
-              endTime: { type: 'string', description: 'ISO 8601 format end time' },
-              attendeeEmail: { type: 'string', description: 'The leads email address' },
-              description: { type: 'string', description: 'Brief context about the lead' }
+              name: { type: 'string', description: 'Full name of the caller' },
+              email: { type: 'string', description: 'Email address of the caller' },
+              website: { type: 'string', description: 'Their existing website URL, or "none" if they do not have one' },
+              businessType: { type: 'string', description: 'Type of business (e.g. HVAC, plumber, law firm)' }
             },
-            required: ['summary', 'startTime', 'endTime', 'attendeeEmail']
+            required: ['name', 'email']
           }
         }
       },
@@ -137,7 +137,7 @@ Keep responses concise (1-3 sentences).`;
         type: 'function',
         function: {
           name: 'send_setup_link',
-          description: "Send a setup link to the user's email address.",
+          description: "Send a setup link to the user's email address if they want to sign up immediately.",
           parameters: {
             type: 'object',
             properties: {
@@ -166,19 +166,49 @@ Keep responses concise (1-3 sentences).`;
         const functionName = toolCall.function.name;
         const functionArgs = JSON.parse(toolCall.function.arguments);
 
+        if (functionName === 'capture_lead') {
+          const callTime = new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' });
+          console.log(`📋 Lead captured: ${functionArgs.name} | ${functionArgs.email} | ${functionArgs.website || 'no website'}`);
+          this.emailService.sendLeadAlert({
+            name: functionArgs.name,
+            email: functionArgs.email,
+            website: functionArgs.website || 'Not provided',
+            businessType: functionArgs.businessType || 'Unknown',
+            callTime
+          }).catch(err => {
+            console.error('Lead alert email error:', err);
+          });
+
+          messages.push(message);
+          messages.push({
+            tool_call_id: toolCall.id,
+            role: 'tool',
+            name: functionName,
+            content: 'Lead captured and owner notified.'
+          });
+
+          const followUp = await this.openai.chat.completions.create({
+            model: 'gpt-4o',
+            messages: messages,
+            temperature: 0.7,
+            max_tokens: 150,
+          });
+
+          return followUp.choices[0].message.content;
+        }
+
         if (functionName === 'send_setup_link') {
           console.log(`📧 Sending setup link to ${functionArgs.email}...`);
           this.emailService.sendSetupLink(functionArgs.email, functionArgs.email).catch(err => {
             console.error('Delayed email error:', err);
           });
 
-          // Get follow-up response
           messages.push(message);
           messages.push({
             tool_call_id: toolCall.id,
             role: 'tool',
             name: functionName,
-            content: 'Email sending initiated.'
+            content: 'Setup link sent.'
           });
 
           const secondResponse = await this.openai.chat.completions.create({
@@ -189,14 +219,6 @@ Keep responses concise (1-3 sentences).`;
           });
 
           return secondResponse.choices[0].message.content;
-        }
-
-        if (functionName === 'book_appointment') {
-          return {
-            role: 'assistant',
-            content: message.content || "Let me get that booked for you right now.",
-            tool_calls: message.tool_calls
-          };
         }
       }
     }
