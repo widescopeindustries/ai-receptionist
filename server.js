@@ -835,6 +835,91 @@ app.get('/onboarding', (req, res) => {
   }
 });
 
+// ==================== SMS HANDLER ====================
+
+/**
+ * POST /sms/incoming — Twilio calls this when someone texts the demo number.
+ * Jessica replies conversationally and offers a personalized demo.
+ */
+app.post('/sms/incoming', async (req, res) => {
+  const MessagingResponse = twilio.twiml.MessagingResponse;
+  const twiml = new MessagingResponse();
+  const from = req.body.From || '';
+  const body = (req.body.Body || '').trim();
+
+  console.log(`📱 Inbound SMS from ${from}: "${body}"`);
+
+  // Log as a lead
+  try {
+    const existing = db.db.prepare('SELECT id FROM leads WHERE phone = ?').get(from);
+    if (!existing) {
+      db.db.prepare(`
+        INSERT INTO leads (id, phone, source, form_type, status, business_id, created_at, updated_at)
+        VALUES (?, ?, 'sms_inbound', 'sms', 'new', 'widescope', datetime('now'), datetime('now'))
+      `).run(uuidv4(), from);
+    }
+  } catch (err) {
+    console.error('⚠️ Failed to log SMS lead:', err.message);
+  }
+
+  // Parse intent from message body
+  const lower = body.toLowerCase();
+  const wantsDemo = /demo|show|see|how|work|example|try|test|sample/i.test(body);
+  const hasBusinessName = body.length > 3 && !/^(hi|hey|hello|yo|yes|no|ok|okay|sure|what|who|huh|\?)$/i.test(body);
+  const isStop = /^stop$/i.test(body.trim());
+  const isHelp = /^help$/i.test(body.trim());
+
+  if (isStop || isHelp) {
+    // Let Twilio handle STOP/HELP natively — don't reply
+    return res.type('text/xml').send(new MessagingResponse().toString());
+  }
+
+  let reply;
+
+  if (hasBusinessName && !wantsDemo) {
+    // They gave us their business name — offer to build their demo
+    const bizName = body.length < 60 ? body : body.substring(0, 60);
+    reply = `Hey! I'm Jessica 👋 AI receptionist for ${bizName}. Let me build you a personalized demo — what's your website? (Or just call me now to hear me in action: (817) 533-8424)`;
+  } else if (wantsDemo) {
+    reply = `Hey! I'm Jessica from AI Always Answer 👋 Call (817) 533-8424 right now and I'll answer — that's the demo. Or text me your business name and website and I'll build you a custom one. $99/mo, answers 24/7.`;
+  } else {
+    // Generic / greeting
+    reply = `Hey! This is Jessica — I'm an AI receptionist that answers calls 24/7 for small businesses. $99/mo and I never miss a lead 📞\n\nCall me to hear it live: (817) 533-8424\nOr text me your business name and I'll build you a personalized demo!`;
+  }
+
+  // If they gave a business name + website, kick off demo drop async
+  const urlMatch = body.match(/https?:\/\/[^\s]+|[a-z0-9-]+\.(com|net|org|co|io|biz)[^\s]*/i);
+  if (urlMatch) {
+    const prospectUrl = urlMatch[0].startsWith('http') ? urlMatch[0] : 'https://' + urlMatch[0];
+    const bizName = body.replace(urlMatch[0], '').trim() || new URL(prospectUrl).hostname.replace('www.', '').split('.')[0];
+    const slug = generateDemoSlug(bizName, '');
+    const demoUrl = `${outbound.BASE_URL}/demo/${slug}`;
+
+    setImmediate(async () => {
+      try {
+        db.createProspectDemo({ slug, prospect_url: prospectUrl, business_name: bizName, source: 'sms_inbound' });
+        runDemoDropPipeline(slug).catch(err => console.error(`❌ SMS demo pipeline error:`, err));
+
+        // Send follow-up SMS with demo link once pipeline starts
+        const twilioClient = require('twilio')(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+        await twilioClient.messages.create({
+          to: from,
+          from: outbound.FROM_NUMBER,
+          body: `🎯 Here's your personalized demo for ${bizName}:\n\n${demoUrl}\n\nIt'll be ready in about a minute. Call (817) 533-8424 anytime to talk to me live!`
+        });
+        console.log(`📱 Demo drop SMS sent to ${from} → ${demoUrl}`);
+      } catch (err) {
+        console.error(`❌ SMS demo drop failed:`, err.message);
+      }
+    });
+
+    reply = `On it! Building your personalized demo for ${bizName} now. I'll text you the link in about a minute 🚀`;
+  }
+
+  twiml.message(reply);
+  res.type('text/xml').send(twiml.toString());
+});
+
 // ==================== OUTBOUND VOICEMAIL (JESSICA) ====================
 
 /**
