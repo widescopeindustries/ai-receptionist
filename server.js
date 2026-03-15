@@ -10,6 +10,7 @@ const stripeService = require('./services/stripe-service');
 const emailService = require('./services/email-service');
 const calendarService = require('./services/google-calendar');
 const { getBusinessByNumber, getBusinessById } = require('./config/businesses');
+const elevenLabs = require('./services/elevenlabs-service');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -51,6 +52,31 @@ app.use(express.urlencoded({ extended: false }));
 // Store active conversations
 const conversations = new Map();
 
+/**
+ * ElevenLabs TTS endpoint — Twilio plays this URL instead of using twiml.say()
+ * Usage: /voice/tts?text=Hello+there
+ */
+app.get('/voice/tts', (req, res) => {
+  const text = req.query.text || 'Hello';
+  console.log(`🎙️  ElevenLabs TTS: "${text.substring(0, 60)}..."`);
+  elevenLabs.streamTTS(text, res);
+});
+
+/**
+ * Helper: build a twiml.play() URL for ElevenLabs TTS
+ * Falls back to twiml.say() if ElevenLabs is not configured
+ */
+function speakText(twiml, text, fallbackVoice) {
+  const cleaned = cleanTextForTTS(text);
+  if (process.env.ELEVENLABS_API_KEY) {
+    const encoded = encodeURIComponent(cleaned);
+    const baseUrl = process.env.BASE_URL || 'https://aialwaysanswer.com';
+    twiml.play(`${baseUrl}/voice/tts?text=${encoded}`);
+  } else {
+    twiml.say({ voice: fallbackVoice || 'Polly.Danielle-Neural', language: 'en-US' }, cleaned);
+  }
+}
+
 // Initialize AI Service
 const aiService = new AIService();
 
@@ -80,11 +106,8 @@ app.post('/voice/incoming', async (req, res) => {
   conversationManager.businessConfig = business;
   conversations.set(callSid, conversationManager);
 
-  // Greet the caller using business-specific greeting and voice
-  twiml.say({
-    voice: business.voice,
-    language: 'en-US'
-  }, business.greeting);
+  // Greet the caller using ElevenLabs (or fallback voice)
+  speakText(twiml, business.greeting, business.voice);
 
   // Add the greeting to conversation history
   conversationManager.addMessage('assistant', business.greeting);
@@ -173,20 +196,13 @@ app.post('/voice/process-speech', async (req, res) => {
       conversationManager.addMessage('assistant', finalSpeechResponse);
     }
 
-    // Speak the AI response using business-specific voice
+    // Speak the AI response
     const voice = conversationManager.businessConfig?.voice || 'Polly.Danielle-Neural';
-    twiml.say({
-      voice: voice,
-      language: 'en-US'
-    }, finalSpeechResponse);
+    speakText(twiml, finalSpeechResponse, voice);
 
     // Check if conversation should end
     if (conversationManager.shouldEndCall(finalSpeechResponse)) {
-      twiml.say({
-        voice: 'Polly.Danielle-Neural',
-        language: 'en-US'
-      }, 'Have a great day! Goodbye!');
-
+      speakText(twiml, 'Have a great day! Goodbye!', voice);
       twiml.hangup();
 
       // Save call data before cleanup
@@ -207,10 +223,7 @@ app.post('/voice/process-speech', async (req, res) => {
   } catch (error) {
     console.error('❌ Error processing speech:', error);
 
-    twiml.say({
-      voice: 'Polly.Danielle-Neural',
-      language: 'en-US'
-    }, 'I apologize, I\'m having trouble understanding. Let\'s get back to business.');
+    speakText(twiml, "Sorry about that, I had a little hiccup. Let me pull up your info again.");
 
     twiml.redirect('/voice/incoming');
   }
@@ -225,10 +238,7 @@ app.post('/voice/process-speech', async (req, res) => {
 app.post('/voice/no-input', (req, res) => {
   const twiml = new VoiceResponse();
 
-  twiml.say({
-    voice: 'Polly.Danielle-Neural',
-    language: 'en-US'
-  }, 'Are you still there? I\'m ready to help whenever you are!');
+  speakText(twiml, "Hey, are you still there? Take your time, I'm not going anywhere!");
 
   twiml.gather({
     input: 'speech',
