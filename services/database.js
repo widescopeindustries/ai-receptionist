@@ -130,6 +130,24 @@ class DatabaseService {
       )
     `);
 
+    // Outbound calls tracking table
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS outbound_calls (
+        id TEXT PRIMARY KEY,
+        prospect_id TEXT,
+        phone TEXT NOT NULL,
+        business_name TEXT,
+        call_sid TEXT,
+        status TEXT DEFAULT 'initiated',
+        answered_by TEXT,
+        duration_seconds INTEGER DEFAULT 0,
+        voicemail_left INTEGER DEFAULT 0,
+        callback_received INTEGER DEFAULT 0,
+        notes TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     // Add columns if they don't exist (migration for existing DBs)
     try { this.db.exec('ALTER TABLE leads ADD COLUMN business_id TEXT DEFAULT "widescope"'); } catch (e) { /* column exists */ }
     try { this.db.exec('ALTER TABLE leads ADD COLUMN address TEXT'); } catch (e) { /* column exists */ }
