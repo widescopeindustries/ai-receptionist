@@ -112,12 +112,14 @@ app.post('/voice/incoming', async (req, res) => {
   console.log(`📞 Incoming call from ${phoneFrom} → ${business.name} (${phoneTo})`);
 
   // Check if this is a CALLBACK from an outbound prospect
+  let outboundCallback = null;
   try {
     const normalizedFrom = phoneFrom.replace(/[^\d+]/g, '');
     const outboundMatch = db.db.prepare(
-      'SELECT id, business_name, phone FROM outbound_calls WHERE phone = ? ORDER BY created_at DESC LIMIT 1'
+      'SELECT id, business_name, phone, answered_by FROM outbound_calls WHERE phone = ? ORDER BY created_at DESC LIMIT 1'
     ).get(normalizedFrom);
     if (outboundMatch) {
+      outboundCallback = outboundMatch;
       console.log(`🔥 CALLBACK DETECTED! ${outboundMatch.business_name || normalizedFrom} is calling back from outbound campaign!`);
       db.db.prepare('UPDATE outbound_calls SET callback_received = 1, notes = COALESCE(notes, "") || " | callback:" || datetime("now") WHERE id = ?')
         .run(outboundMatch.id);
@@ -135,10 +137,45 @@ app.post('/voice/incoming', async (req, res) => {
   conversationManager.callId = callId;
   conversationManager.businessId = business.id;
   conversationManager.businessConfig = business;
-  conversations.set(callSid, conversationManager);
+  
+  // If this is a callback from outbound, personalize Jessica's greeting and system prompt
+  if (outboundCallback && outboundCallback.business_name) {
+    const bizName = outboundCallback.business_name;
+    const callbackGreeting = `Hey! ${bizName}! I was hoping to hear back from you! Thanks so much for calling me back. So, like I mentioned in my message, I'm Jessica, an AI receptionist, and I can answer your phones 24 7 so you never miss another customer. What questions can I answer for you?`;
+    
+    // Override the system prompt so Jessica knows the context for the whole conversation
+    conversationManager.businessConfig = {
+      ...business,
+      greeting: callbackGreeting,
+      systemPrompt: `You are Jessica, an AI receptionist from AI Always Answer. You left a voicemail for ${bizName} and they are calling you back. You are warm, enthusiastic, and genuinely excited they called back.
 
-  // Greet the caller using ElevenLabs (or fallback voice)
-  speakText(twiml, business.greeting, business.voice);
+KEY FACTS TO REFERENCE:
+- 85% of callers don't leave voicemails — they call a competitor instead
+- 62% of missed calls go straight to the competition
+- You cost $99/month — way cheaper than missing even one job
+- You answer 24/7, book appointments, capture leads, and sound like a real person
+
+YOUR GOAL: Get them excited about the service and close the sale. Be conversational and natural.
+
+CLOSING THE SALE:
+- If they're interested, tell them you can get them set up today — it takes about 5 minutes
+- Ask for their email to send the signup link
+- If they want to know more, offer to show them a live demo right now on the call
+- Be confident but not pushy. The voicemail already did the hard sell — now you're just answering questions and making it easy to say yes.
+
+PRICING:
+- $99/month for 24/7 AI receptionist
+- No contracts, cancel anytime
+- Usually pays for itself with one captured job
+
+Remember: they called YOU back. They're already interested. Make it easy for them to say yes.`
+    };
+    
+    speakText(twiml, callbackGreeting, business.voice);
+  } else {
+    // Normal greeting for non-callback calls
+    speakText(twiml, business.greeting, business.voice);
+  }
 
   // Add the greeting to conversation history
   conversationManager.addMessage('assistant', business.greeting);
