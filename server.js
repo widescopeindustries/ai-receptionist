@@ -1194,11 +1194,11 @@ app.post('/api/outbound/test-script', async (req, res) => {
       record: true,
       recordingStatusCallback: `${outbound.BASE_URL}/outbound/recording?id=${callId}`,
       machineDetection: 'DetectMessageEnd',
-      machineDetectionTimeout: 45,
-      machineDetectionSpeechThreshold: 1500,
-      machineDetectionSpeechEndThreshold: 1200,
-      machineDetectionSilenceTimeout: 4000,
-      timeout: 30,
+      machineDetectionTimeout: 60,
+      machineDetectionSpeechThreshold: 2500,
+      machineDetectionSpeechEndThreshold: 2000,
+      machineDetectionSilenceTimeout: 5000,
+      timeout: 35,
     });
 
     res.json({ status: 'calling', callSid: call.sid, industry, businessName: testBizName, phone: normalized, mode: testMode });
