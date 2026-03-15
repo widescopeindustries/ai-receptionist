@@ -1160,46 +1160,48 @@ app.post('/outbound/recording', (req, res) => {
 
 /**
  * POST /api/outbound/test-script — Call a number with a specific industry script for testing/iteration.
- * Body: { phone, industry, businessName? }
- * Example: { "phone": "8175551234", "industry": "plumber", "businessName": "Test Plumbing" }
+ * Body: { phone, industry, businessName?, mode? }
+ * mode: "pickup" (default) — forceVm so you hear script when you answer
+ *        "voicemail" — normal AMD, waits for beep, tests real VM delivery
+ * Example: { "phone": "8175551234", "industry": "plumber", "businessName": "Test Plumbing", "mode": "voicemail" }
  */
 app.post('/api/outbound/test-script', async (req, res) => {
-  const { phone, industry, businessName } = req.body;
+  const { phone, industry, businessName, mode } = req.body;
 
   if (!phone) return res.status(400).json({ error: 'phone is required' });
   if (!industry) return res.status(400).json({ error: 'industry is required (plumber, hvac, garage_door, septic, electrician, roofer, dental, legal, etc.)' });
 
+  const testMode = mode || 'pickup'; // "pickup" = forceVm, "voicemail" = real AMD
   let normalized = phone.replace(/[^\d+]/g, '');
   if (!normalized.startsWith('+')) normalized = '+1' + normalized;
 
   const testBizName = businessName || `Test ${industry.charAt(0).toUpperCase() + industry.slice(1)} Co`;
 
-  // Force the industry script by caching a fake script under the test phone
-  // We want the TEMPLATE script, not an AI-generated one, so we skip personalization
   const script = outbound.getVoicemailScript(testBizName);
-  console.log(`🧪 Test script call → ${normalized} | industry: ${industry} | biz: ${testBizName}`);
+  console.log(`🧪 Test script call → ${normalized} | industry: ${industry} | biz: ${testBizName} | mode: ${testMode}`);
   console.log(`📝 Script preview: ${script.substring(0, 120)}...`);
 
+  const forceVm = testMode === 'pickup' ? '1' : '0';
   const callId = require('uuid').v4();
   try {
     const twilioClient = require('twilio')(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
     const call = await twilioClient.calls.create({
       to: normalized,
       from: outbound.FROM_NUMBER,
-      url: `${outbound.BASE_URL}/outbound/voicemail-handler?id=${callId}&name=${encodeURIComponent(testBizName)}&phone=${encodeURIComponent(normalized)}&forceVm=1`,
+      url: `${outbound.BASE_URL}/outbound/voicemail-handler?id=${callId}&name=${encodeURIComponent(testBizName)}&phone=${encodeURIComponent(normalized)}&forceVm=${forceVm}`,
       statusCallback: `${outbound.BASE_URL}/outbound/status?id=${callId}&name=${encodeURIComponent(testBizName)}`,
       statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
       record: true,
       recordingStatusCallback: `${outbound.BASE_URL}/outbound/recording?id=${callId}`,
       machineDetection: 'DetectMessageEnd',
-      machineDetectionTimeout: 30,
-      machineDetectionSpeechThreshold: 1200,
-      machineDetectionSpeechEndThreshold: 900,
-      machineDetectionSilenceTimeout: 3000,
-      timeout: 25,
+      machineDetectionTimeout: 45,
+      machineDetectionSpeechThreshold: 1500,
+      machineDetectionSpeechEndThreshold: 1200,
+      machineDetectionSilenceTimeout: 4000,
+      timeout: 30,
     });
 
-    res.json({ status: 'calling', callSid: call.sid, industry, businessName: testBizName, phone: normalized });
+    res.json({ status: 'calling', callSid: call.sid, industry, businessName: testBizName, phone: normalized, mode: testMode });
   } catch (err) {
     console.error(`❌ Test call failed:`, err.message);
     res.status(500).json({ error: err.message });

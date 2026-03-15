@@ -430,11 +430,11 @@ async function callProspect({ phone, businessName, prospectId }) {
       recordingStatusCallback: `${BASE_URL}/outbound/recording?id=${callId}`,
       recordingStatusCallbackMethod: 'POST',
       machineDetection: 'DetectMessageEnd',  // Wait for beep, then speak
-      machineDetectionTimeout: 30,           // 30s — voicemail greetings run ~30s
-      machineDetectionSpeechThreshold: 1200, // 1.2s of speech → human (default 2400ms too slow)
-      machineDetectionSpeechEndThreshold: 900, // 0.9s silence after speech to finalize
-      machineDetectionSilenceTimeout: 3000,  // 3s of silence → machine (faster fail)
-      timeout: 25,  // Ring for 25 seconds max
+      machineDetectionTimeout: 45,           // 45s — some voicemail greetings run long
+      machineDetectionSpeechThreshold: 1500, // 1.5s of speech → human
+      machineDetectionSpeechEndThreshold: 1200, // 1.2s silence after speech to finalize (wait for beep)
+      machineDetectionSilenceTimeout: 4000,  // 4s of silence → machine
+      timeout: 30,  // Ring for 30 seconds max
     });
 
     console.log(`📞 Outbound call initiated: ${call.sid} → ${phone} (${businessName || 'unknown'})`);
