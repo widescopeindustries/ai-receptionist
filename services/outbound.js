@@ -57,9 +57,12 @@ async function callProspect({ phone, businessName, prospectId }) {
       to: phone,
       from: FROM_NUMBER,
       url: `${BASE_URL}/outbound/voicemail-handler?id=${callId}&name=${encodeURIComponent(businessName || '')}&prospectId=${prospectId || ''}`,
-      statusCallback: `${BASE_URL}/outbound/status?id=${callId}&prospectId=${prospectId || ''}`,
+      statusCallback: `${BASE_URL}/outbound/status?id=${callId}&name=${encodeURIComponent(businessName || '')}&prospectId=${prospectId || ''}`,
       statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
       statusCallbackMethod: 'POST',
+      record: true,  // Record every call for review
+      recordingStatusCallback: `${BASE_URL}/outbound/recording?id=${callId}`,
+      recordingStatusCallbackMethod: 'POST',
       machineDetection: 'DetectMessageEnd',  // Wait for beep, then speak
       machineDetectionTimeout: 30,
       timeout: 30,  // Ring for 30 seconds max
