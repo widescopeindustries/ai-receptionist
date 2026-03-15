@@ -30,6 +30,19 @@ app.get('/sitemap.xml', (req, res) => {
 });
 
 // Middleware
+// CORS — allow mission control and other dashboards to hit API endpoints
+app.use((req, res, next) => {
+  const origin = req.headers.origin || '';
+  // Allow mission control, localhost, and aialwaysanswer.com
+  if (origin.includes('missiom-control') || origin.includes('vercel.app') || origin.includes('localhost') || origin.includes('aialwaysanswer')) {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PATCH, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type');
+  }
+  if (req.method === 'OPTIONS') return res.sendStatus(200);
+  next();
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 
