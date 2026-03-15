@@ -98,6 +98,21 @@ app.post('/voice/incoming', async (req, res) => {
   const business = getBusinessByNumber(phoneTo);
   console.log(`📞 Incoming call from ${phoneFrom} → ${business.name} (${phoneTo})`);
 
+  // Check if this is a CALLBACK from an outbound prospect
+  try {
+    const normalizedFrom = phoneFrom.replace(/[^\d+]/g, '');
+    const outboundMatch = db.db.prepare(
+      'SELECT id, business_name, phone FROM outbound_calls WHERE phone = ? ORDER BY created_at DESC LIMIT 1'
+    ).get(normalizedFrom);
+    if (outboundMatch) {
+      console.log(`🔥 CALLBACK DETECTED! ${outboundMatch.business_name || normalizedFrom} is calling back from outbound campaign!`);
+      db.db.prepare('UPDATE outbound_calls SET callback_received = 1, notes = COALESCE(notes, "") || " | callback:" || datetime("now") WHERE id = ?')
+        .run(outboundMatch.id);
+    }
+  } catch (err) {
+    console.error('Callback check error:', err.message);
+  }
+
   // Create call record in database (with business_id)
   const { callId, leadId } = db.createCall(callSid, phoneFrom, phoneTo, business.id);
 
@@ -837,27 +852,61 @@ app.post('/outbound/status', (req, res) => {
   const answeredBy = req.body.AnsweredBy || 'unknown';
   const prospectId = req.query.prospectId || '';
   const callId = req.query.id || '';
+  const businessName = decodeURIComponent(req.query.name || '');
   
-  console.log(`📊 Outbound status [${callId}]: ${status} | answered by: ${answeredBy} | duration: ${duration}s | prospect: ${prospectId}`);
+  console.log(`📊 Outbound status [${callId}]: ${status} | ${businessName || 'unknown'} | answered by: ${answeredBy} | duration: ${duration}s`);
   
   // Store call result in DB
   if (status === 'completed' || status === 'no-answer' || status === 'busy' || status === 'failed') {
+    const voicemailLeft = (answeredBy.includes('machine') && parseInt(duration) > 30) ? 1 : 0;
+    
     try {
-      db.db.prepare(`
-        INSERT INTO outbound_calls (id, prospect_id, phone, business_name, call_sid, status, answered_by, duration_seconds, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
-      `).run(
-        callId,
-        prospectId || null,
-        req.body.To || '',
-        req.query.name || '',
-        req.body.CallSid || '',
-        status,
-        answeredBy,
-        parseInt(duration) || 0
-      );
+      // Try insert first, update if exists (call might already be logged from a previous status event)
+      const existing = db.db.prepare('SELECT id FROM outbound_calls WHERE id = ?').get(callId);
+      if (existing) {
+        db.db.prepare(`
+          UPDATE outbound_calls SET status = ?, answered_by = ?, duration_seconds = ?, voicemail_left = ?, business_name = ?
+          WHERE id = ?
+        `).run(status, answeredBy, parseInt(duration) || 0, voicemailLeft, businessName, callId);
+      } else {
+        db.db.prepare(`
+          INSERT INTO outbound_calls (id, prospect_id, phone, business_name, call_sid, status, answered_by, duration_seconds, voicemail_left, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        `).run(
+          callId,
+          prospectId || null,
+          req.body.To || '',
+          businessName,
+          req.body.CallSid || '',
+          status,
+          answeredBy,
+          parseInt(duration) || 0,
+          voicemailLeft
+        );
+      }
     } catch (err) {
       console.error('❌ Failed to log outbound call:', err.message);
+    }
+  }
+  
+  res.sendStatus(200);
+});
+
+/**
+ * POST /outbound/recording — Handle recording status (stores recording URL)
+ */
+app.post('/outbound/recording', (req, res) => {
+  const callId = req.query.id || '';
+  const recordingUrl = req.body.RecordingUrl || '';
+  const recordingSid = req.body.RecordingSid || '';
+  
+  if (callId && recordingUrl) {
+    console.log(`🎙️ Recording ready [${callId}]: ${recordingUrl}`);
+    try {
+      db.db.prepare(`UPDATE outbound_calls SET recording_url = ?, notes = COALESCE(notes, '') || ' | recording:' || ? WHERE id = ?`)
+        .run(`${recordingUrl}.mp3`, `${recordingUrl}.mp3`, callId);
+    } catch (err) {
+      console.error('❌ Failed to save recording URL:', err.message);
     }
   }
   
@@ -923,12 +972,88 @@ app.post('/api/outbound/batch', async (req, res) => {
  */
 app.get('/api/outbound/log', (req, res) => {
   try {
+    const limit = parseInt(req.query.limit) || 200;
     const calls = db.db.prepare(`
-      SELECT * FROM outbound_calls ORDER BY created_at DESC LIMIT 100
-    `).all();
+      SELECT * FROM outbound_calls ORDER BY created_at DESC LIMIT ?
+    `).all(limit);
     res.json(calls);
   } catch (err) {
     res.json([]);
+  }
+});
+
+/**
+ * GET /api/outbound/analytics — Full campaign analytics
+ */
+app.get('/api/outbound/analytics', (req, res) => {
+  try {
+    const all = db.db.prepare('SELECT * FROM outbound_calls ORDER BY created_at DESC').all();
+    
+    const total = all.length;
+    const voicemails = all.filter(c => (c.answered_by || '').includes('machine') && c.duration_seconds > 30);
+    const humans = all.filter(c => c.answered_by === 'human');
+    const noAnswer = all.filter(c => c.status === 'no-answer');
+    const busy = all.filter(c => c.status === 'busy');
+    const failed = all.filter(c => c.status === 'failed');
+    const callbacks = all.filter(c => c.callback_received === 1);
+    const recordings = all.filter(c => c.notes && c.notes.includes('recording:'));
+    
+    const fullScript = voicemails.filter(c => c.duration_seconds >= 85);
+    const engagedHumans = humans.filter(c => c.duration_seconds >= 30);
+    
+    const avgVmDuration = voicemails.length > 0 
+      ? Math.round(voicemails.reduce((s, c) => s + c.duration_seconds, 0) / voicemails.length) 
+      : 0;
+    const avgHumanDuration = humans.length > 0 
+      ? Math.round(humans.reduce((s, c) => s + c.duration_seconds, 0) / humans.length) 
+      : 0;
+    
+    res.json({
+      summary: {
+        totalCalls: total,
+        voicemailsLeft: voicemails.length,
+        voicemailRate: total > 0 ? Math.round(voicemails.length / total * 100) : 0,
+        fullScriptDelivered: fullScript.length,
+        fullScriptRate: voicemails.length > 0 ? Math.round(fullScript.length / voicemails.length * 100) : 0,
+        humansAnswered: humans.length,
+        humanRate: total > 0 ? Math.round(humans.length / total * 100) : 0,
+        engagedHumans: engagedHumans.length,
+        noAnswer: noAnswer.length,
+        busy: busy.length,
+        failed: failed.length,
+        callbacks: callbacks.length,
+        callbackRate: voicemails.length > 0 ? Math.round(callbacks.length / (voicemails.length + humans.length) * 100) : 0,
+        avgVoicemailDuration: avgVmDuration,
+        avgHumanDuration: avgHumanDuration,
+        recordingsAvailable: recordings.length
+      },
+      humanCalls: humans.map(c => ({
+        phone: c.phone,
+        businessName: c.business_name,
+        duration: c.duration_seconds,
+        recording: c.notes && c.notes.includes('recording:') ? c.notes.split('recording:')[1].split(' |')[0] : null,
+        callback: c.callback_received === 1,
+        date: c.created_at
+      })).sort((a, b) => b.duration - a.duration),
+      callbacks: callbacks.map(c => ({
+        phone: c.phone,
+        businessName: c.business_name,
+        originalCallDuration: c.duration_seconds,
+        answeredBy: c.answered_by,
+        notes: c.notes,
+        date: c.created_at
+      })),
+      voicemails: voicemails.map(c => ({
+        phone: c.phone,
+        businessName: c.business_name,
+        duration: c.duration_seconds,
+        fullScript: c.duration_seconds >= 85,
+        recording: c.notes && c.notes.includes('recording:') ? c.notes.split('recording:')[1].split(' |')[0] : null,
+        date: c.created_at
+      }))
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 

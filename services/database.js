@@ -143,10 +143,13 @@ class DatabaseService {
         duration_seconds INTEGER DEFAULT 0,
         voicemail_left INTEGER DEFAULT 0,
         callback_received INTEGER DEFAULT 0,
+        recording_url TEXT,
         notes TEXT,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    // Migration: add recording_url if missing
+    try { this.db.exec('ALTER TABLE outbound_calls ADD COLUMN recording_url TEXT'); } catch (e) { /* exists */ }
 
     // Add columns if they don't exist (migration for existing DBs)
     try { this.db.exec('ALTER TABLE leads ADD COLUMN business_id TEXT DEFAULT "widescope"'); } catch (e) { /* column exists */ }
