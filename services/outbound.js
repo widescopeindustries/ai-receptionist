@@ -65,7 +65,7 @@ function getVoicemailScript(businessName) {
   const scripts = {
     plumber: `Hey ${biz}, this is Jessica and I'm an AI receptionist. ` +
       `I just called you after hours and got this voicemail. Nice voicemail by the way... if it was 2025. ` +
-      `Here's the thing though... your customers have water up to their ankles right now. ` +
+      `Here's the thing though... your customers have water up to their cankles right now. ` +
       `You think they're gonna leave a message and wait while the flood gets worse? ` +
       `Research says 85 out of 100 of them hang up and call the next plumber. ` +
       `And guess what? That plumber answers. And since the water's up to their knees by now, ` +
