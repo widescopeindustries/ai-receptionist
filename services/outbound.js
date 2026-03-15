@@ -73,7 +73,11 @@ function getVoicemailScript(businessName) {
   const industry = detectIndustry(businessName);
   
   const closer = `And you're not gonna believe how affordable it is... 99 bucks a month. That's it. ` +
-    `Call me back at 8 1 7, 5 3 3, 8 4 2 4. ` +
+    `But here's the fun part... if you call me back, I'll give you a personalized demo right on the spot. ` +
+    `You'll hear exactly what I'd sound like talking to YOUR customers. ` +
+    `Which is... well... pretty much just like I sound right now. ` +
+    `But more like... singing ${biz}'s praises from the rooftops type thing. ` +
+    `Call me back at 8 1 7, 5 3 3, 8 4 2 4 so we can plug the voicemail hole for you... permanently. ` +
     `That's 8 1 7, 5 3 3, 8 4 2 4. ` +
     `And don't worry about what time or day it is... that's kind of the whole point, right? Talk soon!`;
 
