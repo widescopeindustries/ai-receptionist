@@ -1195,9 +1195,9 @@ app.post('/api/outbound/test-script', async (req, res) => {
       recordingStatusCallback: `${outbound.BASE_URL}/outbound/recording?id=${callId}`,
       machineDetection: 'DetectMessageEnd',
       machineDetectionTimeout: 60,
-      machineDetectionSpeechThreshold: 2500,
-      machineDetectionSpeechEndThreshold: 2000,
-      machineDetectionSilenceTimeout: 5000,
+      machineDetectionSpeechThreshold: 3500,
+      machineDetectionSpeechEndThreshold: 3000,
+      machineDetectionSilenceTimeout: 6000,
       timeout: 35,
     });
 
