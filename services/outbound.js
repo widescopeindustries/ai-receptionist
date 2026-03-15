@@ -79,10 +79,10 @@ function getVoicemailScript(businessName) {
 
   const scripts = {
     plumber: `Hey ${biz}, this is Jessica and I'm an AI receptionist. ` +
-      `I just called you after hours and got this voicemail. Nice voicemail by the way... if it was 2025. ` +
-      `Here's the thing though... your customers have water up to their cankles right now. ` +
-      `You think they're gonna leave a message and wait while the flood gets worse? ` +
-      `Research says 85 out of 100 of them hang up and call the next plumber. ` +
+      `I just called you and got this voicemail. Nice voicemail by the way... if it was 2025. ` +
+      `Now see... I'M patient enough to leave you this voicemail. ` +
+      `But your customers? The ones that are cankle deep in a plumbing nightmare right now? They are not. ` +
+      `According to research, 85 out of 100 of them just hang up and call the next plumber. ` +
       `And guess what? That plumber answers. And since the water's up to their knees by now, ` +
       `they get that job, that insurance check, all of it. ` +
       `Look, it's 2026. Time to plug the leak... pun intended. ` +
@@ -277,12 +277,13 @@ function getVoicemailScript(businessName) {
 
   // Default script for unmatched industries
   const defaultScript = `Hey ${biz}, this is Jessica and I'm an AI receptionist. ` +
-    `I just called your business after hours and got your voicemail. ` +
-    `Now here's the thing... I'm patient enough to leave you this message, ` +
-    `but 85 percent of your callers won't. They hang up and call the next business that answers. ` +
+    `I just called your business and got your voicemail. ` +
+    `Now see... I'M patient enough to leave you this voicemail. ` +
+    `But according to research, 85 percent of your customers? They are not. ` +
+    `They don't leave messages. They just hang up and call the next business that answers. ` +
     `62 percent go straight to your competitor. That's not a guess, those are real numbers. ` +
-    `The average small business loses over 60,000 dollars a year from missed calls. ` +
-    `I can answer every call, 24 7, handle your customers, and sound exactly like this. ` +
+    `The average small business loses over 60,000 dollars a year just from missed calls. ` +
+    `I can answer every single call, 24 7, handle your customers, and sound exactly like this. ` +
     `${closer}`;
 
   return scripts[industry] || defaultScript;
