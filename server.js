@@ -12,6 +12,7 @@ const calendarService = require('./services/google-calendar');
 const { getBusinessByNumber, getBusinessById } = require('./config/businesses');
 const elevenLabs = require('./services/elevenlabs-service');
 const { scrapeSite } = require('./services/scraper');
+const outbound = require('./services/outbound');
 const { v4: uuidv4 } = require('uuid');
 
 const app = express();
@@ -740,6 +741,192 @@ app.get('/onboarding', (req, res) => {
     `);
   } else {
     res.redirect('/');
+  }
+});
+
+// ==================== OUTBOUND VOICEMAIL (JESSICA) ====================
+
+/**
+ * POST /outbound/voicemail-handler — Twilio calls this URL when the outbound call connects.
+ * Uses AMD result to determine if voicemail or human answered.
+ */
+app.post('/outbound/voicemail-handler', (req, res) => {
+  const twiml = new VoiceResponse();
+  const answeredBy = req.body.AnsweredBy || 'unknown';
+  const businessName = req.query.name || '';
+  const callId = req.query.id || '';
+  
+  console.log(`📞 Outbound call answered: ${answeredBy} (${businessName || 'unknown business'})`);
+  
+  if (answeredBy === 'machine_end_beep' || answeredBy === 'machine_end_silence' || answeredBy === 'machine_end_other') {
+    // Voicemail detected — leave the message
+    const script = outbound.getVoicemailScript(businessName);
+    speakText(twiml, script);
+    twiml.pause({ length: 1 });
+    twiml.hangup();
+    console.log(`📝 Voicemail left for: ${businessName || 'unknown'}`);
+  } else if (answeredBy === 'human') {
+    // Human answered — short live pitch
+    const livePitch = businessName
+      ? `Hi! This is Jessica from AI Always Answer. I was actually expecting your voicemail because I'm calling after hours. ` +
+        `The fact that you answered is great, but most of your competitors' phones are going straight to voicemail right now. ` +
+        `I'm an AI receptionist, and I can answer your phones 24 7 for 99 dollars a month so you never miss a job again. ` +
+        `Can I send you a quick demo? It takes 10 seconds to see how it works for ${businessName}.`
+      : `Hi! This is Jessica from AI Always Answer. I'm an AI receptionist that can answer your business phones 24 7 ` +
+        `so you never miss another customer. It's 99 dollars a month. Can I send you a quick demo?`;
+    speakText(twiml, livePitch);
+    // Gather their response
+    twiml.gather({
+      input: 'speech',
+      timeout: 5,
+      speechTimeout: 'auto',
+      action: `/outbound/response?id=${callId}&name=${encodeURIComponent(businessName)}`,
+      method: 'POST'
+    });
+    twiml.pause({ length: 2 });
+    speakText(twiml, `No worries! If you change your mind, call us anytime at 8 1 7, 5 3 3, 8 4 2 4. Have a great night!`);
+    twiml.hangup();
+  } else {
+    // Unknown / machine_start — just leave the voicemail to be safe
+    const script = outbound.getVoicemailScript(businessName);
+    speakText(twiml, script);
+    twiml.pause({ length: 1 });
+    twiml.hangup();
+  }
+  
+  res.type('text/xml').send(twiml.toString());
+});
+
+/**
+ * POST /outbound/response — Handle speech response on live calls
+ */
+app.post('/outbound/response', (req, res) => {
+  const twiml = new VoiceResponse();
+  const speech = (req.body.SpeechResult || '').toLowerCase();
+  const businessName = req.query.name || '';
+  
+  console.log(`🗣️ Outbound live response: "${speech}" from ${businessName || 'unknown'}`);
+  
+  if (speech.includes('yes') || speech.includes('sure') || speech.includes('yeah') || speech.includes('okay') || speech.includes('send')) {
+    speakText(twiml, 
+      `Awesome! I'll send that demo right over. You'll see exactly how I'd answer calls for ${businessName || 'your business'}. ` +
+      `It's already customized with your business info. Check your phone for a text with the link. ` +
+      `And remember, you can call this number anytime, 8 1 7, 5 3 3, 8 4 2 4. I'm always here. Talk soon!`
+    );
+    twiml.hangup();
+    // TODO: trigger demo drop + SMS with link
+  } else {
+    speakText(twiml,
+      `No problem at all! If you ever want to see what it looks like, just call 8 1 7, 5 3 3, 8 4 2 4 anytime. ` +
+      `I answer every call, even the ones your competition is missing right now. Have a great night!`
+    );
+    twiml.hangup();
+  }
+  
+  res.type('text/xml').send(twiml.toString());
+});
+
+/**
+ * POST /outbound/status — Track call status updates
+ */
+app.post('/outbound/status', (req, res) => {
+  const status = req.body.CallStatus;
+  const duration = req.body.CallDuration;
+  const answeredBy = req.body.AnsweredBy || 'unknown';
+  const prospectId = req.query.prospectId || '';
+  const callId = req.query.id || '';
+  
+  console.log(`📊 Outbound status [${callId}]: ${status} | answered by: ${answeredBy} | duration: ${duration}s | prospect: ${prospectId}`);
+  
+  // Store call result in DB
+  if (status === 'completed' || status === 'no-answer' || status === 'busy' || status === 'failed') {
+    try {
+      db.db.prepare(`
+        INSERT INTO outbound_calls (id, prospect_id, phone, business_name, call_sid, status, answered_by, duration_seconds, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+      `).run(
+        callId,
+        prospectId || null,
+        req.body.To || '',
+        req.query.name || '',
+        req.body.CallSid || '',
+        status,
+        answeredBy,
+        parseInt(duration) || 0
+      );
+    } catch (err) {
+      console.error('❌ Failed to log outbound call:', err.message);
+    }
+  }
+  
+  res.sendStatus(200);
+});
+
+/**
+ * POST /api/outbound/call — Trigger a single outbound call
+ */
+app.post('/api/outbound/call', async (req, res) => {
+  const { phone, businessName, prospectId } = req.body;
+  
+  if (!phone) {
+    return res.status(400).json({ error: 'phone is required' });
+  }
+  
+  // Normalize phone
+  let normalized = phone.replace(/[^\d+]/g, '');
+  if (!normalized.startsWith('+')) normalized = '+1' + normalized;
+  
+  const result = await outbound.callProspect({ phone: normalized, businessName, prospectId });
+  res.json(result);
+});
+
+/**
+ * POST /api/outbound/batch — Trigger batch outbound calls
+ * Body: { prospects: [{phone, businessName, prospectId}], delayMs?: 5000 }
+ */
+app.post('/api/outbound/batch', async (req, res) => {
+  const { prospects, delayMs } = req.body;
+  
+  if (!prospects || !Array.isArray(prospects) || prospects.length === 0) {
+    return res.status(400).json({ error: 'prospects array is required' });
+  }
+  
+  if (prospects.length > 50) {
+    return res.status(400).json({ error: 'max 50 calls per batch' });
+  }
+  
+  // Normalize all phones
+  const normalized = prospects.map(p => ({
+    ...p,
+    phone: p.phone.replace(/[^\d+]/g, '').startsWith('+') ? p.phone.replace(/[^\d+]/g, '') : '+1' + p.phone.replace(/[^\d+]/g, '')
+  }));
+  
+  // Kick off async — return immediately
+  res.json({ 
+    status: 'started', 
+    count: normalized.length,
+    message: `Calling ${normalized.length} prospects. Check /api/outbound/log for results.`
+  });
+  
+  // Run calls in background
+  outbound.batchCall(normalized, delayMs || 5000).then(results => {
+    console.log(`✅ Batch complete: ${results.filter(r => r.status === 'initiated').length}/${results.length} calls initiated`);
+  }).catch(err => {
+    console.error('❌ Batch call error:', err.message);
+  });
+});
+
+/**
+ * GET /api/outbound/log — Get outbound call log
+ */
+app.get('/api/outbound/log', (req, res) => {
+  try {
+    const calls = db.db.prepare(`
+      SELECT * FROM outbound_calls ORDER BY created_at DESC LIMIT 100
+    `).all();
+    res.json(calls);
+  } catch (err) {
+    res.json([]);
   }
 });
 
