@@ -106,10 +106,15 @@ app.post('/voice/incoming', async (req, res) => {
   const callSid = req.body.CallSid;
   const phoneFrom = req.body.From;
   const phoneTo = req.body.To;
+  const callerName = req.body.CallerName || null;
+  const callerCity = req.body.FromCity || null;
+  const callerState = req.body.FromState || null;
+  const callerZip = req.body.FromZip || null;
 
   // Look up business config by the Twilio number that was called
   const business = getBusinessByNumber(phoneTo);
-  console.log(`📞 Incoming call from ${phoneFrom} → ${business.name} (${phoneTo})`);
+  const callerInfo = [callerName, callerCity, callerState].filter(Boolean).join(', ');
+  console.log(`📞 Incoming call from ${phoneFrom} (${callerInfo || 'unknown'}) → ${business.name} (${phoneTo})`);
 
   // Check if this is a CALLBACK from an outbound prospect
   let outboundCallback = null;
@@ -138,6 +143,20 @@ app.post('/voice/incoming', async (req, res) => {
   conversationManager.businessId = business.id;
   conversationManager.businessConfig = business;
   
+  // Build caller context string for AI
+  const callerContext = [];
+  if (callerName && callerName !== 'Unknown' && !callerName.includes('WIRELESS')) {
+    callerContext.push(`The caller's name (from caller ID) is ${callerName}.`);
+  }
+  if (callerCity && callerState) {
+    callerContext.push(`They are calling from ${callerCity}, ${callerState}.`);
+  } else if (callerState) {
+    callerContext.push(`They are calling from ${callerState}.`);
+  }
+  const callerContextStr = callerContext.length > 0 
+    ? `\n\nCALLER INFO (from caller ID — use naturally, don't be creepy about it):\n${callerContext.join('\n')}` 
+    : '';
+
   // If this is a callback from outbound, personalize Jessica's greeting and system prompt
   if (outboundCallback && outboundCallback.business_name) {
     const bizName = outboundCallback.business_name;
@@ -168,12 +187,19 @@ PRICING:
 - No contracts, cancel anytime
 - Usually pays for itself with one captured job
 
-Remember: they called YOU back. They're already interested. Make it easy for them to say yes.`
+Remember: they called YOU back. They're already interested. Make it easy for them to say yes.${callerContextStr}`
     };
     
     speakText(twiml, callbackGreeting, business.voice);
   } else {
     // Normal greeting for non-callback calls
+    // Inject caller context into the business system prompt if available
+    if (callerContextStr) {
+      conversationManager.businessConfig = {
+        ...business,
+        systemPrompt: (business.systemPrompt || '') + callerContextStr
+      };
+    }
     speakText(twiml, business.greeting, business.voice);
   }
 
