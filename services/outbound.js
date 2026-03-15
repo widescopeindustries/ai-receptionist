@@ -2,6 +2,20 @@ const twilio = require('twilio');
 const { v4: uuidv4 } = require('uuid');
 const OpenAI = require('openai');
 
+/**
+ * Businesses likely to have existing answering services — poor cold-call prospects.
+ * These already have the problem "solved" (even if poorly) and won't see the pain clearly.
+ */
+const SUPPRESSED_PATTERNS = [
+  /clinic|medical|urgent care|hospital|health center|family practice|primary care/i,
+  /answering service|call center|virtual receptionist/i,  // They ARE the competition
+];
+
+function isSuppressed(businessName) {
+  if (!businessName) return false;
+  return SUPPRESSED_PATTERNS.some(p => p.test(businessName));
+}
+
 let _client = null;
 function getClient() {
   if (!_client) {
@@ -415,8 +429,11 @@ async function callProspect({ phone, businessName, prospectId }) {
       recordingStatusCallback: `${BASE_URL}/outbound/recording?id=${callId}`,
       recordingStatusCallbackMethod: 'POST',
       machineDetection: 'DetectMessageEnd',  // Wait for beep, then speak
-      machineDetectionTimeout: 30,
-      timeout: 30,  // Ring for 30 seconds max
+      machineDetectionTimeout: 30,           // 30s — voicemail greetings run ~30s
+      machineDetectionSpeechThreshold: 1200, // 1.2s of speech → human (default 2400ms too slow)
+      machineDetectionSpeechEndThreshold: 900, // 0.9s silence after speech to finalize
+      machineDetectionSilenceTimeout: 3000,  // 3s of silence → machine (faster fail)
+      timeout: 25,  // Ring for 25 seconds max
     });
 
     console.log(`📞 Outbound call initiated: ${call.sid} → ${phone} (${businessName || 'unknown'})`);
@@ -450,6 +467,14 @@ async function batchCall(prospects, delayMs = 5000) {
   
   for (let i = 0; i < prospects.length; i++) {
     const prospect = prospects[i];
+    
+    // Skip suppressed verticals (clinics, existing answering services, etc.)
+    if (isSuppressed(prospect.businessName)) {
+      console.log(`⏭️ Skipping suppressed prospect: ${prospect.businessName}`);
+      results.push({ ...prospect, status: 'suppressed', error: 'Suppressed vertical' });
+      continue;
+    }
+    
     console.log(`📞 Calling ${i + 1}/${prospects.length}: ${prospect.businessName || prospect.phone}`);
     
     const result = await callProspect(prospect);
@@ -477,4 +502,4 @@ function getScriptForCall(phone, businessName) {
   return getVoicemailScript(businessName);
 }
 
-module.exports = { callProspect, batchCall, getVoicemailScript, getScriptForCall, generatePersonalizedScript, getBusinessContext, FROM_NUMBER, BASE_URL };
+module.exports = { callProspect, batchCall, getVoicemailScript, getScriptForCall, generatePersonalizedScript, getBusinessContext, isSuppressed, FROM_NUMBER, BASE_URL };

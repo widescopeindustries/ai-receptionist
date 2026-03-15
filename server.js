@@ -881,10 +881,10 @@ app.post('/outbound/voicemail-handler', (req, res) => {
     speakText(twiml, `No worries! If you change your mind, call us anytime at 8 1 7, 5 3 3, 8 4 2 4. Have a great night!`);
     twiml.hangup();
   } else {
-    // Unknown / machine_start — just leave the voicemail to be safe
-    const script = outbound.getVoicemailScript(businessName);
-    speakText(twiml, script);
-    twiml.pause({ length: 1 });
+    // Unknown / machine_start — AMD hasn't decided yet or detection failed.
+    // DO NOT play the voicemail script — a real human might be on the line.
+    // Hang up cleanly. Better to miss a voicemail than creep out a live person.
+    console.log(`⚠️ AMD inconclusive (${answeredBy}) for ${businessName || 'unknown'} — hanging up clean`);
     twiml.hangup();
   }
   
