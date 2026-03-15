@@ -1196,7 +1196,7 @@ app.post('/api/outbound/test-script', async (req, res) => {
       machineDetection: 'DetectMessageEnd',
       machineDetectionTimeout: 60,
       machineDetectionSpeechThreshold: 3500,
-      machineDetectionSpeechEndThreshold: 3000,
+      machineDetectionSpeechEndThreshold: 4000,
       machineDetectionSilenceTimeout: 6000,
       timeout: 35,
     });

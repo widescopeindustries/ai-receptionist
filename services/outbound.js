@@ -432,7 +432,7 @@ async function callProspect({ phone, businessName, prospectId }) {
       machineDetection: 'DetectMessageEnd',  // Wait for beep, then speak
       machineDetectionTimeout: 60,           // 60s — wait for long greetings + beep
       machineDetectionSpeechThreshold: 3500, // 3.5s of speech → machine (not human)
-      machineDetectionSpeechEndThreshold: 3000, // 3s silence after speech to finalize (wait for actual beep)
+      machineDetectionSpeechEndThreshold: 4000, // 4s silence after speech to finalize (wait for actual beep)
       machineDetectionSilenceTimeout: 6000,  // 6s total silence → machine
       timeout: 35,  // Ring for 35 seconds max
     });
