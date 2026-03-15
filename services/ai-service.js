@@ -268,6 +268,96 @@ Keep every response under 2 sentences unless you are asking a question. Drive th
     const response = await result.response;
     return response.text();
   }
+  /**
+   * Extract structured business data from scraped website text using GPT-4o
+   */
+  async extractBusinessData(scrapedData) {
+    const prompt = `You are extracting structured business data from scraped website text.
+Return ONLY valid JSON, no commentary.
+
+Extract:
+{
+  "business_name": "exact company name",
+  "business_type": "one of: HVAC, Plumber, Electrician, Roofer, Landscaper, Dentist, Law Firm, Pest Control, Cleaning Service, Auto Repair, General Contractor, Other",
+  "phone": "primary phone number",
+  "location": "City, State format",
+  "service_area": "list of cities/areas they serve",
+  "services": ["array", "of", "specific", "services"],
+  "hours": "hours of operation as a string",
+  "tagline": "their tagline or best marketing line from the site",
+  "has_emergency": true or false,
+  "emergency_description": "what their emergency service is, if any"
+}
+
+Website data:
+Title: ${scrapedData.title || 'Unknown'}
+Meta: ${scrapedData.metaDesc || ''}
+Site Name: ${scrapedData.ogSiteName || ''}
+Phones found: ${(scrapedData.phones || []).join(', ')}
+Hours found: ${scrapedData.hours || 'Not found'}
+Emergency mentions: ${scrapedData.hasEmergency ? 'Yes' : 'No'}
+Headings: ${(scrapedData.headings || []).join(' | ')}
+Nav Items: ${(scrapedData.navItems || []).join(' | ')}
+
+Full text:
+${(scrapedData.combinedText || '').substring(0, 4000)}`;
+
+    const openai = this.openai || new (require('openai'))({ apiKey: process.env.OPENAI_API_KEY });
+
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.3,
+      max_tokens: 800,
+      response_format: { type: 'json_object' }
+    });
+
+    return JSON.parse(response.choices[0].message.content);
+  }
+
+  /**
+   * Generate personalized demo page content + system prompt from business data
+   */
+  async generateDemoContent(businessData) {
+    const prompt = `You are creating personalized AI demo page copy for a small business.
+Given their business data, generate marketing copy for their personalized AI receptionist demo.
+
+Business data: ${JSON.stringify(businessData)}
+
+Return JSON:
+{
+  "demo_headline": "compelling headline mentioning their business name, like '[Business Name] Never Misses a Call — Now'",
+  "demo_subheadline": "one sentence about their specific situation and how AI receptionist helps",
+  "pain_points": ["3-4 real pain points this business type faces regarding missed calls and phone management"],
+  "value_props": [
+    { "icon": "phone_in_talk", "title": "short title", "desc": "one sentence tailored to this business" },
+    { "icon": "schedule", "title": "short title", "desc": "one sentence" },
+    { "icon": "location_on", "title": "short title", "desc": "one sentence" },
+    { "icon": "trending_up", "title": "short title", "desc": "one sentence" }
+  ],
+  "faqs": [
+    { "q": "question about AI receptionist tailored to this business", "a": "answer" },
+    { "q": "question", "a": "answer" },
+    { "q": "question", "a": "answer" },
+    { "q": "question", "a": "answer" }
+  ],
+  "system_prompt": "Full AI system prompt for their receptionist persona. Include: business name, type, services list, service area, hours, emergency info. Personality should match business type. Include instruction that this is a DEMO and if someone asks to actually book, say 'In the live version, I would book that for you. Right now I am showing you the experience.' End with a soft close: 'This is what every caller would experience — and you can launch this for $99/month.'"
+}
+
+Use material icon names for the icon field. Make the system_prompt detailed and specific to this business.`;
+
+    const openai = this.openai || new (require('openai'))({ apiKey: process.env.OPENAI_API_KEY });
+
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.7,
+      max_tokens: 1500,
+      response_format: { type: 'json_object' }
+    });
+
+    return JSON.parse(response.choices[0].message.content);
+  }
 }
 
 module.exports = AIService;

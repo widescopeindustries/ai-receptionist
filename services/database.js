@@ -91,6 +91,45 @@ class DatabaseService {
       )
     `);
 
+    // Prospect demos table - Demo Drop personalized demo pages
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS prospect_demos (
+        id TEXT PRIMARY KEY,
+        slug TEXT UNIQUE NOT NULL,
+        prospect_url TEXT NOT NULL,
+        prospect_email TEXT,
+        prospect_name TEXT,
+        scraped_data TEXT,
+        business_name TEXT NOT NULL,
+        business_type TEXT,
+        phone TEXT,
+        location TEXT,
+        services TEXT,
+        hours TEXT,
+        tagline TEXT,
+        service_area TEXT,
+        faqs TEXT,
+        has_emergency TEXT DEFAULT 'false',
+        logo_url TEXT,
+        brand_color TEXT DEFAULT '#2563eb',
+        system_prompt TEXT,
+        demo_headline TEXT,
+        demo_subheadline TEXT,
+        pain_points TEXT,
+        value_props TEXT,
+        scrape_status TEXT DEFAULT 'pending',
+        generate_status TEXT DEFAULT 'pending',
+        email_status TEXT DEFAULT 'pending',
+        view_count INTEGER DEFAULT 0,
+        last_viewed_at TEXT,
+        chat_started INTEGER DEFAULT 0,
+        lead_captured INTEGER DEFAULT 0,
+        converted INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     // Add columns if they don't exist (migration for existing DBs)
     try { this.db.exec('ALTER TABLE leads ADD COLUMN business_id TEXT DEFAULT "widescope"'); } catch (e) { /* column exists */ }
     try { this.db.exec('ALTER TABLE leads ADD COLUMN address TEXT'); } catch (e) { /* column exists */ }
@@ -115,6 +154,7 @@ class DatabaseService {
       CREATE INDEX IF NOT EXISTS idx_calls_lead ON calls(lead_id);
       CREATE INDEX IF NOT EXISTS idx_customers_email ON customers(email);
       CREATE INDEX IF NOT EXISTS idx_customers_stripe ON customers(stripe_customer_id);
+      CREATE INDEX IF NOT EXISTS idx_prospect_demos_slug ON prospect_demos(slug);
     `);
 
     console.log('✅ Database initialized');
@@ -339,6 +379,81 @@ class DatabaseService {
    */
   getActiveCustomers() {
     return this.db.prepare("SELECT * FROM customers WHERE status = 'active'").all();
+  }
+
+  // ==================== PROSPECT DEMO METHODS ====================
+
+  /**
+   * Create a new prospect demo record
+   */
+  createProspectDemo(data) {
+    const id = data.id || uuidv4();
+    this.db.prepare(`
+      INSERT INTO prospect_demos (id, slug, prospect_url, prospect_email, prospect_name, business_name)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(
+      id,
+      data.slug,
+      data.prospect_url,
+      data.prospect_email || null,
+      data.prospect_name || null,
+      data.business_name || 'Unknown Business'
+    );
+    return this.db.prepare('SELECT * FROM prospect_demos WHERE id = ?').get(id);
+  }
+
+  /**
+   * Get prospect demo by slug
+   */
+  getProspectDemoBySlug(slug) {
+    return this.db.prepare('SELECT * FROM prospect_demos WHERE slug = ?').get(slug);
+  }
+
+  /**
+   * Update prospect demo fields
+   */
+  updateProspectDemo(slug, data) {
+    const allowed = [
+      'scraped_data', 'business_name', 'business_type', 'phone', 'location',
+      'services', 'hours', 'tagline', 'service_area', 'faqs', 'has_emergency',
+      'logo_url', 'brand_color', 'system_prompt', 'demo_headline', 'demo_subheadline',
+      'pain_points', 'value_props', 'scrape_status', 'generate_status', 'email_status',
+      'view_count', 'last_viewed_at', 'chat_started', 'lead_captured', 'converted'
+    ];
+
+    const updates = [];
+    const values = [];
+
+    for (const [key, value] of Object.entries(data)) {
+      if (allowed.includes(key)) {
+        updates.push(`${key} = ?`);
+        values.push(value);
+      }
+    }
+
+    if (updates.length > 0) {
+      updates.push('updated_at = CURRENT_TIMESTAMP');
+      values.push(slug);
+      this.db.prepare(`UPDATE prospect_demos SET ${updates.join(', ')} WHERE slug = ?`).run(...values);
+    }
+
+    return this.getProspectDemoBySlug(slug);
+  }
+
+  /**
+   * Increment demo view count
+   */
+  incrementDemoView(slug) {
+    this.db.prepare(`
+      UPDATE prospect_demos SET view_count = view_count + 1, last_viewed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE slug = ?
+    `).run(slug);
+  }
+
+  /**
+   * List all prospect demos
+   */
+  getProspectDemos(limit = 100) {
+    return this.db.prepare('SELECT * FROM prospect_demos ORDER BY created_at DESC LIMIT ?').all(limit);
   }
 
   // ==================== STATS ====================

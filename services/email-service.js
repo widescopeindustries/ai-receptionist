@@ -142,6 +142,59 @@ class EmailService {
       return false;
     }
   }
+  /**
+   * Send personalized demo link to prospect
+   */
+  async sendDemoLink(toEmail, prospectName, businessName, demoUrl) {
+    if (!this.resend) {
+      console.log(`📧 Demo link (email disabled): ${demoUrl} → ${toEmail}`);
+      return false;
+    }
+
+    const name = prospectName || 'there';
+
+    try {
+      await this.resend.emails.send({
+        from: 'AI Always Answer <sales@aialwaysanswer.com>',
+        to: [toEmail],
+        subject: `Your ${businessName} AI Receptionist Demo is Live`,
+        html: `
+          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 30px; background: #f8fafc;">
+            <div style="background: white; border-radius: 16px; padding: 40px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+              <h2 style="color: #1f2937; margin-top: 0; font-size: 24px;">Hi ${name},</h2>
+              <p style="color: #4b5563; font-size: 16px; line-height: 1.6;">
+                We built a custom AI receptionist demo for <strong>${businessName}</strong>.
+              </p>
+              <p style="color: #4b5563; font-size: 16px; line-height: 1.6;">
+                It's already trained on your services, your location, and your business.
+              </p>
+              <div style="text-align: center; margin: 35px 0;">
+                <a href="${demoUrl}" style="background-color: #2563eb; color: white; padding: 16px 40px; text-decoration: none; border-radius: 12px; font-weight: 700; font-size: 18px; display: inline-block;">
+                  See Your Demo
+                </a>
+              </div>
+              <p style="color: #4b5563; font-size: 16px; line-height: 1.6;">
+                You can talk to it right now — no setup, no signup.
+              </p>
+              <p style="color: #4b5563; font-size: 16px; line-height: 1.6;">
+                If you like what you hear, you can launch it for <strong>$99/month</strong>.
+              </p>
+              <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;" />
+              <p style="color: #6b7280; font-size: 14px;">
+                — Lyndon<br/>
+                <strong>AI Always Answer</strong>
+              </p>
+            </div>
+          </div>
+        `
+      });
+      console.log(`✅ Demo link sent to ${toEmail}`);
+      return true;
+    } catch (err) {
+      console.error('❌ Demo link email error:', err.message);
+      return false;
+    }
+  }
 }
 
 module.exports = new EmailService();

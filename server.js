@@ -11,6 +11,8 @@ const emailService = require('./services/email-service');
 const calendarService = require('./services/google-calendar');
 const { getBusinessByNumber, getBusinessById } = require('./config/businesses');
 const elevenLabs = require('./services/elevenlabs-service');
+const { scrapeSite } = require('./services/scraper');
+const { v4: uuidv4 } = require('uuid');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -739,6 +741,709 @@ app.get('/onboarding', (req, res) => {
   } else {
     res.redirect('/');
   }
+});
+
+// ==================== DEMO DROP ENDPOINTS ====================
+
+// Store chat sessions in memory (sessionId → message history)
+const demoChatSessions = new Map();
+
+/**
+ * Generate a URL-safe slug from business name + location
+ */
+function generateDemoSlug(businessName, location) {
+  const base = `${businessName || 'demo'} ${location || ''}`
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, '')
+    .replace(/\s+/g, '-')
+    .substring(0, 40);
+  const suffix = uuidv4().substring(0, 6);
+  return `${base}-${suffix}`;
+}
+
+/**
+ * Run the full Demo Drop pipeline (async, called after immediate response)
+ */
+async function runDemoDropPipeline(slug) {
+  const demo = db.getProspectDemoBySlug(slug);
+  if (!demo) return;
+
+  try {
+    // Step 1: Scrape
+    db.updateProspectDemo(slug, { scrape_status: 'scraping' });
+    let scrapedData;
+    try {
+      scrapedData = await scrapeSite(demo.prospect_url);
+      db.updateProspectDemo(slug, {
+        scrape_status: 'scraped',
+        scraped_data: JSON.stringify(scrapedData)
+      });
+    } catch (err) {
+      console.error(`❌ Scrape failed for ${slug}:`, err.message);
+      db.updateProspectDemo(slug, { scrape_status: 'failed' });
+      // Continue with minimal data
+      scrapedData = {
+        title: demo.business_name,
+        metaDesc: '',
+        ogSiteName: '',
+        headings: [],
+        navItems: [],
+        phones: [],
+        hours: null,
+        hasEmergency: false,
+        combinedText: `Business: ${demo.business_name}. Website: ${demo.prospect_url}`
+      };
+    }
+
+    // Step 2: AI extraction
+    db.updateProspectDemo(slug, { generate_status: 'generating' });
+
+    let extracted;
+    try {
+      extracted = await aiService.extractBusinessData(scrapedData);
+    } catch (err) {
+      console.error(`❌ AI extraction failed for ${slug}:`, err.message);
+      extracted = {
+        business_name: demo.business_name || scrapedData.title || 'Business',
+        business_type: 'Other',
+        phone: (scrapedData.phones || [])[0] || '',
+        location: '',
+        services: [],
+        hours: scrapedData.hours || '',
+        tagline: scrapedData.metaDesc || '',
+        has_emergency: scrapedData.hasEmergency || false
+      };
+    }
+
+    // Update with extracted data
+    db.updateProspectDemo(slug, {
+      business_name: extracted.business_name || demo.business_name,
+      business_type: extracted.business_type || 'Other',
+      phone: extracted.phone || '',
+      location: extracted.location || '',
+      services: JSON.stringify(extracted.services || []),
+      hours: extracted.hours || '',
+      tagline: extracted.tagline || '',
+      service_area: extracted.service_area || '',
+      has_emergency: extracted.has_emergency ? 'true' : 'false',
+      logo_url: scrapedData.logoUrl || '',
+      brand_color: scrapedData.brandColor || '#2563eb'
+    });
+
+    // Step 3: Generate demo content
+    let demoContent;
+    try {
+      demoContent = await aiService.generateDemoContent(extracted);
+    } catch (err) {
+      console.error(`❌ Demo content generation failed for ${slug}:`, err.message);
+      demoContent = {
+        demo_headline: `${extracted.business_name} Never Misses a Call — Now`,
+        demo_subheadline: `Your AI receptionist answers every call, captures details, and texts you instantly.`,
+        pain_points: ['Missed calls going to voicemail', 'Lost revenue from unanswered phones', 'No after-hours coverage'],
+        value_props: [
+          { icon: 'phone_in_talk', title: '24/7 Call Handling', desc: 'Every call answered, every time.' },
+          { icon: 'schedule', title: 'After-Hours Coverage', desc: 'Nights, weekends, holidays — covered.' },
+          { icon: 'location_on', title: 'Service Area Aware', desc: 'Knows your coverage area and filters calls.' },
+          { icon: 'trending_up', title: 'Lead Capture', desc: 'Collects caller info and sends it to you instantly.' }
+        ],
+        faqs: [
+          { q: `Will it know about ${extracted.business_name}?`, a: 'Yes — it is trained on your specific services and business details.' },
+          { q: 'How quickly can I launch?', a: 'Most businesses are live within 24 hours of signing up.' },
+          { q: 'Can I use my existing number?', a: 'Yes. Just forward calls to us — no number change needed.' },
+          { q: 'What does it cost?', a: '$99/month for 500 minutes of AI receptionist coverage.' }
+        ],
+        system_prompt: `You are an AI receptionist for ${extracted.business_name}${extracted.business_type ? ', a ' + extracted.business_type + ' company' : ''}${extracted.location ? ' in ' + extracted.location : ''}.\n\nYOUR KNOWLEDGE:\n- Services: ${(extracted.services || []).join(', ') || 'General services'}\n- Service area: ${extracted.service_area || extracted.location || 'Local area'}\n- Hours: ${extracted.hours || 'Business hours'}\n- Phone: ${extracted.phone || 'Available on website'}\n\nYOUR GOAL: Show this business owner what their AI receptionist would sound like. Answer questions like a real receptionist would. Be warm, professional, and helpful. When they seem engaged, tell them: "This is what every caller would experience — and you can launch this for $99/month."\n\nIMPORTANT: This is a DEMO. If someone asks to actually book an appointment or schedule service, say "In the live version, I would book that for you right now. I am just showing you the experience today."\n\nKeep responses conversational and under 3 sentences unless more detail is needed.`
+      };
+    }
+
+    db.updateProspectDemo(slug, {
+      system_prompt: demoContent.system_prompt,
+      demo_headline: demoContent.demo_headline,
+      demo_subheadline: demoContent.demo_subheadline,
+      pain_points: JSON.stringify(demoContent.pain_points),
+      value_props: JSON.stringify(demoContent.value_props),
+      faqs: JSON.stringify(demoContent.faqs),
+      generate_status: 'done'
+    });
+
+    // Step 4: Send email if we have one
+    const updatedDemo = db.getProspectDemoBySlug(slug);
+    if (updatedDemo.prospect_email) {
+      const baseUrl = process.env.BASE_URL || 'https://aialwaysanswer.com';
+      const demoUrl = `${baseUrl}/demo/${slug}`;
+      try {
+        await emailService.sendDemoLink(
+          updatedDemo.prospect_email,
+          updatedDemo.prospect_name,
+          updatedDemo.business_name,
+          demoUrl
+        );
+        db.updateProspectDemo(slug, { email_status: 'sent' });
+      } catch (err) {
+        console.error(`❌ Demo email failed for ${slug}:`, err.message);
+        db.updateProspectDemo(slug, { email_status: 'failed' });
+      }
+    } else {
+      db.updateProspectDemo(slug, { email_status: 'skipped' });
+    }
+
+    console.log(`✅ Demo Drop pipeline complete for ${slug}`);
+  } catch (err) {
+    console.error(`❌ Demo Drop pipeline error for ${slug}:`, err);
+    db.updateProspectDemo(slug, { scrape_status: 'failed', generate_status: 'failed' });
+  }
+}
+
+/**
+ * POST /api/demo-drop — Kick off the Demo Drop pipeline
+ */
+app.post('/api/demo-drop', async (req, res) => {
+  try {
+    const { url, email, name } = req.body;
+
+    if (!url) {
+      return res.status(400).json({ error: 'URL is required' });
+    }
+
+    // Validate URL format
+    let normalizedUrl = url;
+    if (!normalizedUrl.startsWith('http')) normalizedUrl = 'https://' + normalizedUrl;
+    try { new URL(normalizedUrl); } catch (e) {
+      return res.status(400).json({ error: 'Invalid URL format' });
+    }
+
+    // Generate slug from URL hostname as initial business name
+    const hostname = new URL(normalizedUrl).hostname.replace('www.', '');
+    const businessName = hostname.split('.')[0].replace(/-/g, ' ');
+    const slug = generateDemoSlug(businessName, '');
+
+    // Create DB record
+    const demo = db.createProspectDemo({
+      slug,
+      prospect_url: normalizedUrl,
+      prospect_email: email || null,
+      prospect_name: name || null,
+      business_name: businessName
+    });
+
+    const baseUrl = process.env.BASE_URL || `http://localhost:${PORT}`;
+    const demoUrl = `${baseUrl}/demo/${slug}`;
+
+    // Return immediately, run pipeline async
+    res.status(201).json({
+      slug,
+      demo_url: demoUrl,
+      status: 'processing'
+    });
+
+    // Fire and forget the pipeline
+    setImmediate(() => {
+      runDemoDropPipeline(slug).catch(err => {
+        console.error(`❌ Pipeline error for ${slug}:`, err);
+      });
+    });
+  } catch (error) {
+    console.error('Demo Drop error:', error);
+    res.status(500).json({ error: 'Failed to create demo' });
+  }
+});
+
+/**
+ * GET /demo/:slug — Serve the personalized demo page
+ */
+app.get('/demo/:slug', (req, res) => {
+  const { slug } = req.params;
+  const demo = db.getProspectDemoBySlug(slug);
+
+  if (!demo) {
+    return res.status(404).send('<h1>Demo not found</h1><p>This demo link is invalid or has expired.</p>');
+  }
+
+  // Increment view count
+  db.incrementDemoView(slug);
+
+  // Parse JSON fields safely
+  const services = JSON.parse(demo.services || '[]');
+  const painPoints = JSON.parse(demo.pain_points || '[]');
+  const valueProps = JSON.parse(demo.value_props || '[]');
+  const faqs = JSON.parse(demo.faqs || '[]');
+  const brandColor = demo.brand_color || '#2563eb';
+
+  // Check if still processing
+  const isReady = demo.generate_status === 'done';
+
+  res.send(`<!DOCTYPE html>
+<html class="scroll-smooth dark" lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>${demo.business_name} AI Receptionist Demo | AI Always Answer</title>
+    <meta name="description" content="${demo.demo_subheadline || 'Your personalized AI receptionist demo'}"/>
+    <link href="https://fonts.googleapis.com" rel="preconnect"/>
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@700;800&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet"/>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+    <script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              primary: "${brandColor}",
+              "background-dark": "#0f172a",
+              "surface-dark": "#1e293b",
+              "accent-neon": "#38bdf8"
+            },
+            fontFamily: {
+              display: ["Plus Jakarta Sans", "sans-serif"],
+              sans: ["Inter", "sans-serif"]
+            }
+          }
+        }
+      };
+    </script>
+    <style>
+      .glass-card { background: rgba(15, 23, 42, 0.72); backdrop-filter: blur(18px); border: 1px solid rgba(148, 163, 184, 0.18); }
+      .mesh-bg {
+        background:
+          radial-gradient(circle at top left, rgba(37, 99, 235, 0.28), transparent 32%),
+          radial-gradient(circle at bottom right, rgba(56, 189, 248, 0.22), transparent 28%),
+          linear-gradient(135deg, #020617 0%, #0f172a 48%, #111827 100%);
+      }
+      details summary::-webkit-details-marker { display: none; }
+      #chat-messages { scrollbar-width: thin; scrollbar-color: #334155 transparent; }
+      #chat-messages::-webkit-scrollbar { width: 6px; }
+      #chat-messages::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+      .chat-msg-ai { background: rgba(37, 99, 235, 0.15); border: 1px solid rgba(37, 99, 235, 0.25); }
+      .chat-msg-user { background: rgba(148, 163, 184, 0.12); border: 1px solid rgba(148, 163, 184, 0.2); }
+      .typing-dot { animation: blink 1.4s infinite both; }
+      .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+      .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+      @keyframes blink { 0%, 80%, 100% { opacity: 0.3; } 40% { opacity: 1; } }
+    </style>
+</head>
+<body class="bg-background-dark text-slate-100 font-sans">
+
+${!isReady ? `
+<div class="fixed inset-0 z-50 flex items-center justify-center bg-background-dark/95">
+  <div class="text-center p-8">
+    <div class="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-primary/20 mb-6">
+      <span class="material-symbols-outlined text-3xl text-primary animate-spin">sync</span>
+    </div>
+    <h2 class="font-display text-2xl font-bold mb-3">Building Your Demo...</h2>
+    <p class="text-slate-400 mb-6">We're scraping your website and training your AI receptionist. This usually takes 30-60 seconds.</p>
+    <p class="text-sm text-slate-500">This page will auto-refresh when ready.</p>
+  </div>
+</div>
+<script>setTimeout(() => location.reload(), 8000);</script>
+` : ''}
+
+<header class="mesh-bg relative overflow-hidden px-4 pb-24 pt-8 text-white">
+    <div class="absolute left-0 top-0 h-full w-full opacity-40">
+        <div class="absolute left-[-10%] top-[-12%] h-72 w-72 rounded-full bg-primary blur-[120px]"></div>
+        <div class="absolute bottom-[-14%] right-[-6%] h-80 w-80 rounded-full bg-accent-neon blur-[140px]"></div>
+    </div>
+    <nav class="relative z-10 mx-auto flex max-w-7xl items-center justify-between py-4">
+        <div class="flex items-center space-x-3">
+            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-primary shadow-lg shadow-blue-500/20">
+                <span class="material-symbols-outlined text-xl text-white">smart_toy</span>
+            </div>
+            <div>
+                <span class="block font-display text-xl font-bold tracking-tight">${demo.business_name}</span>
+                <span class="block text-xs font-medium uppercase tracking-[0.24em] text-slate-400">AI Receptionist Demo</span>
+            </div>
+        </div>
+        <a class="rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-slate-950 transition-all hover:scale-[1.03]" href="#cta">
+            Get Started — $99/mo
+        </a>
+    </nav>
+
+    <div class="relative z-10 mx-auto mt-12 grid max-w-7xl gap-12 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+        <div>
+            <div class="mb-6 inline-flex items-center rounded-full border border-blue-400/30 bg-blue-500/10 px-4 py-1.5 text-sm font-semibold text-accent-neon">
+                ${demo.business_type ? `Built for ${demo.business_type} businesses` : 'Your personalized AI demo'}
+            </div>
+            <h1 class="max-w-4xl font-display text-5xl font-extrabold leading-[1.02] tracking-tight md:text-6xl">
+                ${demo.demo_headline || demo.business_name + ' Never Misses a Call — Now'}
+            </h1>
+            <p class="mt-6 max-w-2xl text-lg leading-relaxed text-slate-300 md:text-xl">
+                ${demo.demo_subheadline || 'Your AI receptionist answers every call, captures details, and texts you instantly.'}
+            </p>
+            <div class="mt-10 flex flex-col gap-4 sm:flex-row">
+                <a class="inline-flex items-center justify-center rounded-2xl bg-primary px-8 py-4 text-lg font-bold text-white shadow-lg shadow-blue-500/25 transition-all hover:-translate-y-0.5 hover:bg-blue-700" href="#chat-section">
+                    Try the Live Chat Demo
+                </a>
+                <a class="inline-flex items-center justify-center rounded-2xl border border-slate-600 bg-white/5 px-8 py-4 text-lg font-semibold text-white transition-colors hover:border-slate-400 hover:bg-white/10" href="#cta">
+                    Start for $99/mo
+                </a>
+            </div>
+            ${services.length > 0 ? `
+            <div class="mt-8 flex flex-wrap gap-3 text-sm font-medium text-slate-300">
+                ${services.slice(0, 5).map(s => `<span class="rounded-full border border-slate-700 bg-slate-900/50 px-4 py-2">${s}</span>`).join('')}
+            </div>` : ''}
+        </div>
+
+        <!-- LIVE CHAT WIDGET -->
+        <div class="glass-card rounded-[2rem] p-6 shadow-2xl shadow-slate-950/30" id="chat-section">
+            <div class="mb-4 flex items-center justify-between">
+                <div class="inline-flex items-center rounded-full bg-emerald-400/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.24em] text-emerald-300">
+                    <span class="mr-2 h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    Live Demo
+                </div>
+                <span class="text-xs text-slate-500">Powered by AI Always Answer</span>
+            </div>
+            <div id="chat-messages" class="h-80 overflow-y-auto space-y-3 mb-4 pr-1">
+                <div class="chat-msg-ai rounded-2xl rounded-tl-md px-4 py-3 max-w-[85%]">
+                    <p class="text-sm text-slate-200">Hi! Thanks for calling ${demo.business_name}. How can I help you today?</p>
+                </div>
+            </div>
+            <form id="chat-form" class="flex gap-2">
+                <input type="text" id="chat-input" placeholder="Type a message..." autocomplete="off"
+                    class="flex-1 rounded-xl border-slate-700 bg-slate-900/80 px-4 py-3 text-sm text-white placeholder-slate-500 focus:border-primary focus:ring-primary" />
+                <button type="submit" class="rounded-xl bg-primary px-4 py-3 text-white transition-colors hover:bg-blue-700">
+                    <span class="material-symbols-outlined text-lg">send</span>
+                </button>
+            </form>
+        </div>
+    </div>
+</header>
+
+${painPoints.length > 0 ? `
+<section class="bg-[#0b1220] px-4 py-24">
+    <div class="mx-auto max-w-6xl">
+        <div class="mx-auto max-w-3xl text-center">
+            <h2 class="font-display text-4xl font-bold tracking-tight text-white">Sound familiar?</h2>
+            <p class="mt-4 text-lg leading-relaxed text-slate-400">
+                These are the problems ${demo.business_name} faces every day with missed calls.
+            </p>
+        </div>
+        <div class="mt-14 grid gap-8 md:grid-cols-${Math.min(painPoints.length, 3)}">
+            ${painPoints.map(pp => `
+            <div class="rounded-[1.75rem] border border-slate-800 bg-surface-dark p-8 text-center shadow-sm">
+                <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-red-500/10">
+                    <span class="material-symbols-outlined text-3xl text-red-500">phone_missed</span>
+                </div>
+                <p class="mt-6 text-lg leading-relaxed text-slate-300">${pp}</p>
+            </div>`).join('')}
+        </div>
+    </div>
+</section>` : ''}
+
+${valueProps.length > 0 ? `
+<section class="bg-background-dark/50 px-4 py-24">
+    <div class="mx-auto max-w-6xl">
+        <div class="mx-auto max-w-3xl text-center">
+            <h2 class="font-display text-4xl font-bold tracking-tight text-white">What your AI receptionist does for ${demo.business_name}.</h2>
+        </div>
+        <div class="mt-14 grid gap-8 md:grid-cols-2 lg:grid-cols-4">
+            ${valueProps.map(vp => `
+            <div class="group rounded-[1.75rem] border border-slate-800 bg-surface-dark p-8 shadow-sm transition-shadow hover:shadow-xl">
+                <div class="flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-500/10 transition-colors group-hover:bg-primary">
+                    <span class="material-symbols-outlined text-3xl text-primary group-hover:text-white">${vp.icon || 'star'}</span>
+                </div>
+                <h3 class="mt-6 font-display text-xl font-bold text-white">${vp.title}</h3>
+                <p class="mt-3 leading-relaxed text-slate-400">${vp.desc}</p>
+            </div>`).join('')}
+        </div>
+    </div>
+</section>` : ''}
+
+${faqs.length > 0 ? `
+<section class="bg-[#0b1220] px-4 py-24">
+    <div class="mx-auto max-w-4xl">
+        <div class="mx-auto max-w-3xl text-center">
+            <h2 class="font-display text-4xl font-bold tracking-tight text-white">Frequently Asked Questions</h2>
+        </div>
+        <div class="mt-12 space-y-4">
+            ${faqs.map((faq, i) => `
+            <details class="group rounded-[1.5rem] border border-slate-800 bg-surface-dark p-6 shadow-sm open:border-primary/30 open:shadow-lg"${i === 0 ? ' open' : ''}>
+                <summary class="flex cursor-pointer list-none items-center justify-between gap-6 font-display text-xl font-bold text-white">
+                    ${faq.q}
+                    <span class="material-symbols-outlined text-slate-400 transition-transform group-open:rotate-45">add</span>
+                </summary>
+                <p class="mt-4 text-base leading-relaxed text-slate-400">${faq.a}</p>
+            </details>`).join('')}
+        </div>
+    </div>
+</section>` : ''}
+
+<section class="mesh-bg relative px-4 py-28 text-white" id="cta">
+    <div class="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(37,99,235,0.18),_transparent_32%)]"></div>
+    <div class="relative mx-auto max-w-3xl text-center">
+        <h2 class="font-display text-4xl font-bold tracking-tight md:text-5xl">
+            Launch this exact setup for ${demo.business_name}.
+        </h2>
+        <p class="mt-6 text-lg leading-relaxed text-slate-300">
+            Everything you just saw — the AI receptionist trained on your business, 24/7 call handling, instant lead alerts — starts at $99/month.
+        </p>
+        <div class="mt-10 flex flex-col items-center gap-6">
+            <a href="https://buy.stripe.com/dRm4gzdiF6aqcykcfZ18c07" class="inline-flex items-center justify-center rounded-2xl bg-primary px-10 py-5 text-xl font-bold text-white shadow-lg shadow-blue-500/25 transition-all hover:-translate-y-0.5 hover:bg-blue-700">
+                Start for $99/mo
+            </a>
+            <div class="grid grid-cols-3 gap-8 mt-4">
+                <div class="text-center">
+                    <div class="font-display text-3xl font-extrabold">24/7</div>
+                    <div class="mt-1 text-xs uppercase tracking-[0.2em] text-slate-400">Coverage</div>
+                </div>
+                <div class="text-center">
+                    <div class="font-display text-3xl font-extrabold">500</div>
+                    <div class="mt-1 text-xs uppercase tracking-[0.2em] text-slate-400">Minutes</div>
+                </div>
+                <div class="text-center">
+                    <div class="font-display text-3xl font-extrabold">$99</div>
+                    <div class="mt-1 text-xs uppercase tracking-[0.2em] text-slate-400">/month</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lead capture form -->
+        <div class="mt-12 mx-auto max-w-md rounded-[2rem] border border-slate-700/70 bg-slate-950/45 p-8 text-left">
+            <h3 class="font-display text-xl font-bold text-white mb-4">Want us to set this up for you?</h3>
+            <form id="lead-form" class="space-y-4">
+                <input type="text" name="name" placeholder="Your name" class="w-full rounded-xl border-slate-700 bg-slate-900/80 px-4 py-3 text-white focus:border-primary focus:ring-primary" />
+                <input type="email" name="email" placeholder="Email address" required class="w-full rounded-xl border-slate-700 bg-slate-900/80 px-4 py-3 text-white focus:border-primary focus:ring-primary" />
+                <input type="tel" name="phone" placeholder="Phone number" required class="w-full rounded-xl border-slate-700 bg-slate-900/80 px-4 py-3 text-white focus:border-primary focus:ring-primary" />
+                <button type="submit" class="w-full rounded-2xl bg-accent-neon py-4 text-lg font-bold text-slate-950 transition-all hover:bg-sky-300">
+                    Get My AI Receptionist
+                </button>
+                <div id="lead-success" class="hidden rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-4 text-sm text-emerald-100"></div>
+            </form>
+        </div>
+    </div>
+</section>
+
+<footer class="border-t border-slate-800 bg-background-dark px-4 py-12">
+    <div class="mx-auto max-w-6xl text-center">
+        <div class="flex items-center justify-center space-x-3 mb-4">
+            <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
+                <span class="material-symbols-outlined text-sm text-white">smart_toy</span>
+            </div>
+            <span class="font-display text-lg font-bold">AI Always Answer</span>
+        </div>
+        <p class="text-sm text-slate-500">&copy; 2026 AI Always Answer. All rights reserved.</p>
+    </div>
+</footer>
+
+<script>
+(function() {
+  const SLUG = '${slug}';
+  const chatForm = document.getElementById('chat-form');
+  const chatInput = document.getElementById('chat-input');
+  const chatMessages = document.getElementById('chat-messages');
+  let sessionId = 'sess-' + Math.random().toString(36).substring(2, 10);
+  let chatStarted = false;
+
+  function addMessage(text, role) {
+    const div = document.createElement('div');
+    div.className = role === 'user'
+      ? 'chat-msg-user rounded-2xl rounded-tr-md px-4 py-3 max-w-[85%] ml-auto'
+      : 'chat-msg-ai rounded-2xl rounded-tl-md px-4 py-3 max-w-[85%]';
+    div.innerHTML = '<p class="text-sm text-slate-200">' + text.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</p>';
+    chatMessages.appendChild(div);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+
+  function showTyping() {
+    const div = document.createElement('div');
+    div.id = 'typing-indicator';
+    div.className = 'chat-msg-ai rounded-2xl rounded-tl-md px-4 py-3 max-w-[85%]';
+    div.innerHTML = '<div class="flex gap-1"><span class="typing-dot h-2 w-2 rounded-full bg-slate-400 inline-block"></span><span class="typing-dot h-2 w-2 rounded-full bg-slate-400 inline-block"></span><span class="typing-dot h-2 w-2 rounded-full bg-slate-400 inline-block"></span></div>';
+    chatMessages.appendChild(div);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+
+  function hideTyping() {
+    const el = document.getElementById('typing-indicator');
+    if (el) el.remove();
+  }
+
+  chatForm.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const msg = chatInput.value.trim();
+    if (!msg) return;
+
+    addMessage(msg, 'user');
+    chatInput.value = '';
+    chatInput.disabled = true;
+    showTyping();
+
+    try {
+      const res = await fetch('/api/demo/' + SLUG + '/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: msg, sessionId: sessionId })
+      });
+      const data = await res.json();
+      hideTyping();
+      if (data.reply) {
+        addMessage(data.reply, 'ai');
+      } else {
+        addMessage('Sorry, I had a moment. Could you try again?', 'ai');
+      }
+    } catch (err) {
+      hideTyping();
+      addMessage('Connection error. Please try again.', 'ai');
+    }
+
+    chatInput.disabled = false;
+    chatInput.focus();
+  });
+
+  // Lead capture form
+  const leadForm = document.getElementById('lead-form');
+  if (leadForm) {
+    leadForm.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const formData = new FormData(e.target);
+      const data = Object.fromEntries(formData.entries());
+      data.company = '${demo.business_name.replace(/'/g, "\\'")}';
+      data.source = 'demo_drop';
+      data.formType = 'demo_drop_lead';
+      data.pageVariant = 'demo-' + SLUG;
+
+      try {
+        const res = await fetch('/api/leads', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        if (res.ok) {
+          document.getElementById('lead-success').textContent = 'Got it! We will reach out within 24 hours to get you set up.';
+          document.getElementById('lead-success').classList.remove('hidden');
+          e.target.reset();
+
+          // Track lead captured
+          fetch('/api/demo-drop/' + SLUG + '/status', { method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ lead_captured: 1 })
+          }).catch(function(){});
+        }
+      } catch (err) {
+        document.getElementById('lead-success').textContent = 'Something went wrong. Please try again.';
+        document.getElementById('lead-success').classList.remove('hidden');
+      }
+    });
+  }
+})();
+</script>
+</body>
+</html>`);
+});
+
+/**
+ * POST /api/demo/:slug/chat — Chat with the demo AI
+ */
+app.post('/api/demo/:slug/chat', async (req, res) => {
+  try {
+    const { slug } = req.params;
+    const { message, sessionId } = req.body;
+
+    if (!message) {
+      return res.status(400).json({ error: 'Message is required' });
+    }
+
+    const demo = db.getProspectDemoBySlug(slug);
+    if (!demo || demo.generate_status !== 'done') {
+      return res.status(404).json({ error: 'Demo not found or still processing' });
+    }
+
+    // Mark chat as started
+    if (!demo.chat_started) {
+      db.updateProspectDemo(slug, { chat_started: 1 });
+    }
+
+    // Get or create session history
+    const sessKey = `${slug}:${sessionId || 'default'}`;
+    if (!demoChatSessions.has(sessKey)) {
+      demoChatSessions.set(sessKey, []);
+    }
+    const history = demoChatSessions.get(sessKey);
+
+    // Add user message
+    history.push({ role: 'user', content: message });
+
+    // Get AI response using the demo's system prompt
+    const reply = await aiService.getResponse(history, message, demo.system_prompt);
+
+    // Add AI response to history
+    history.push({ role: 'assistant', content: reply });
+
+    // Cap history at 30 messages
+    if (history.length > 30) {
+      demoChatSessions.set(sessKey, history.slice(-20));
+    }
+
+    res.json({ reply });
+  } catch (error) {
+    console.error('Demo chat error:', error);
+    res.status(500).json({ error: 'Chat error', reply: 'Sorry, I had a hiccup. Try again?' });
+  }
+});
+
+/**
+ * GET /api/demo-drop/list — List all demos (dashboard)
+ */
+app.get('/api/demo-drop/list', (req, res) => {
+  const demos = db.getProspectDemos(parseInt(req.query.limit) || 100);
+  res.json(demos.map(d => ({
+    slug: d.slug,
+    business_name: d.business_name,
+    business_type: d.business_type,
+    prospect_email: d.prospect_email,
+    prospect_url: d.prospect_url,
+    demo_url: `${process.env.BASE_URL || 'https://aialwaysanswer.com'}/demo/${d.slug}`,
+    scrape_status: d.scrape_status,
+    generate_status: d.generate_status,
+    email_status: d.email_status,
+    view_count: d.view_count,
+    chat_started: d.chat_started,
+    lead_captured: d.lead_captured,
+    converted: d.converted,
+    created_at: d.created_at
+  })));
+});
+
+/**
+ * GET /api/demo-drop/:slug/status — Check demo status
+ */
+app.get('/api/demo-drop/:slug/status', (req, res) => {
+  const demo = db.getProspectDemoBySlug(req.params.slug);
+  if (!demo) return res.status(404).json({ error: 'Demo not found' });
+
+  res.json({
+    slug: demo.slug,
+    business_name: demo.business_name,
+    scrape_status: demo.scrape_status,
+    generate_status: demo.generate_status,
+    email_status: demo.email_status,
+    view_count: demo.view_count,
+    chat_started: demo.chat_started,
+    lead_captured: demo.lead_captured,
+    converted: demo.converted,
+    created_at: demo.created_at,
+    updated_at: demo.updated_at
+  });
+});
+
+/**
+ * PATCH /api/demo-drop/:slug/status — Update demo tracking fields
+ */
+app.patch('/api/demo-drop/:slug/status', (req, res) => {
+  const demo = db.getProspectDemoBySlug(req.params.slug);
+  if (!demo) return res.status(404).json({ error: 'Demo not found' });
+
+  const allowed = ['lead_captured', 'converted', 'chat_started'];
+  const updates = {};
+  for (const key of allowed) {
+    if (req.body[key] !== undefined) updates[key] = req.body[key];
+  }
+
+  if (Object.keys(updates).length > 0) {
+    db.updateProspectDemo(req.params.slug, updates);
+  }
+
+  res.json({ success: true });
 });
 
 // HVAC landing page variant (clean URL)
