@@ -64,6 +64,46 @@ class EmailService {
   }
 
   /**
+   * Send lead alert to owner when AI captures a lead on a call
+   * @param {Object} leadData - { name, email, website, phone, callTime }
+   */
+  async sendLeadAlert(leadData) {
+    if (!this.resend) {
+      console.log('📋 Lead captured (email disabled):', leadData);
+      return false;
+    }
+
+    const { name, email, website, phone, callTime } = leadData;
+    const to = process.env.NOTIFICATION_EMAIL || process.env.ADMIN_EMAIL || 'molyndon@gmail.com';
+
+    try {
+      await this.resend.emails.send({
+        from: 'AI Always Answer <leads@aialwaysanswer.com>',
+        to: [to],
+        subject: `New lead from call: ${name || phone || 'Unknown'}`,
+        html: `
+          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+            <h2 style="color: #2563eb;">New lead — follow up within 10 minutes</h2>
+            <table style="width:100%; border-collapse: collapse;">
+              <tr><td style="padding:8px; font-weight:bold;">Name</td><td style="padding:8px;">${name || 'Not provided'}</td></tr>
+              <tr style="background:#f9f9f9;"><td style="padding:8px; font-weight:bold;">Email</td><td style="padding:8px;">${email || 'Not provided'}</td></tr>
+              <tr><td style="padding:8px; font-weight:bold;">Website</td><td style="padding:8px;">${website || 'Not provided'}</td></tr>
+              <tr style="background:#f9f9f9;"><td style="padding:8px; font-weight:bold;">Phone</td><td style="padding:8px;">${phone || 'Unknown'}</td></tr>
+              <tr><td style="padding:8px; font-weight:bold;">Called at</td><td style="padding:8px;">${callTime || new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' })}</td></tr>
+            </table>
+            <p style="margin-top:20px; color:#666;">They were told someone would reach out within 10 minutes.</p>
+          </div>
+        `
+      });
+      console.log(`✅ Lead alert sent to ${to}`);
+      return true;
+    } catch (err) {
+      console.error('❌ Lead alert email error:', err.message);
+      return false;
+    }
+  }
+
+  /**
    * Send setup link to prospect (for AI Always Answer business)
    */
   async sendSetupLink(toEmail, name) {
