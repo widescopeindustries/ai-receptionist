@@ -19,24 +19,28 @@ const BASE_URL = process.env.BASE_URL || 'https://aialwaysanswer.com';
  * This IS the proof of concept — the voicemail demonstrates the problem.
  */
 function getVoicemailScript(businessName) {
-  // If we know the business name, personalize it
   const greeting = businessName 
-    ? `Hi, this message is for the owner or manager at ${businessName}.`
-    : `Hi, this message is for the business owner.`;
+    ? `Hey there, this message is for the owner or manager at ${businessName}.`
+    : `Hey there, this message is for the business owner.`;
 
   return `${greeting} ` +
     `My name is Jessica and I'm actually an AI receptionist. ` +
     `I just called your business after hours and got your voicemail. ` +
     `Now here's the thing... I'm patient enough to leave you this message, ` +
-    `but your last 4 customers who called after hours? They weren't. ` +
-    `They hung up and called someone who answered. ` +
-    `This voicemail is your proof that you're losing real jobs to competitors ` +
-    `every single night your phone goes to voicemail. ` +
-    `I can answer your phones 24 7, book appointments, capture every lead, ` +
-    `and sound exactly like this... for 99 dollars a month. ` +
-    `Call me back at 8 1 7, 5 3 3, 8 4 2 4. ` +
+    `but according to a recent study, 85 percent of callers won't do what I just did. ` +
+    `They hang up and they call the next company that actually answers. ` +
+    `And 62 percent of those people? They go straight to your competitor. ` +
+    `That's not a guess, those are real numbers. ` +
+    `For home service businesses, every single missed call costs an average of 12 hundred dollars. ` +
+    `So this voicemail right here? This is what your customers hear before they give up on you. ` +
+    `I can make sure that never happens again. I answer every call, 24 7, ` +
+    `book appointments, capture every lead, and sound exactly like this. ` +
+    `And you are not gonna believe how affordable it is to never lose a customer again. ` +
+    `99 bucks a month. That's it. ` +
+    `So call me back at 8 1 7, 5 3 3, 8 4 2 4. ` +
     `That's 8 1 7, 5 3 3, 8 4 2 4. ` +
-    `I answer every call. Even the ones you're missing right now. ` +
+    `And don't worry about the time or what day it is... ` +
+    `that's kind of the whole point, right? ` +
     `Talk soon!`;
 }
 

@@ -768,12 +768,14 @@ app.post('/outbound/voicemail-handler', (req, res) => {
   } else if (answeredBy === 'human') {
     // Human answered — short live pitch
     const livePitch = businessName
-      ? `Hi! This is Jessica from AI Always Answer. I was actually expecting your voicemail because I'm calling after hours. ` +
-        `The fact that you answered is great, but most of your competitors' phones are going straight to voicemail right now. ` +
-        `I'm an AI receptionist, and I can answer your phones 24 7 for 99 dollars a month so you never miss a job again. ` +
-        `Can I send you a quick demo? It takes 10 seconds to see how it works for ${businessName}.`
-      : `Hi! This is Jessica from AI Always Answer. I'm an AI receptionist that can answer your business phones 24 7 ` +
-        `so you never miss another customer. It's 99 dollars a month. Can I send you a quick demo?`;
+      ? `Oh wow, hi! This is Jessica from AI Always Answer. I'm honestly surprised someone picked up, I was calling after hours expecting to get your voicemail. ` +
+        `That actually makes my point though... did you know that 85 percent of your customers won't wait for voicemail? They just hang up and call the next company. ` +
+        `I'm an AI receptionist and I can answer every call for ${businessName}, 24 7, book appointments, and capture every lead... ` +
+        `and you're not going to believe this... it's 99 bucks a month. ` +
+        `Can I send you a quick demo? You'll see exactly how I'd answer calls for your business.`
+      : `Oh wow, hi! I'm Jessica from AI Always Answer. I was honestly expecting your voicemail. ` +
+        `Did you know 85 percent of callers won't leave a voicemail? They just call your competitor instead. ` +
+        `I'm an AI receptionist, 99 bucks a month, I answer every call 24 7. Can I send you a quick demo?`;
     speakText(twiml, livePitch);
     // Gather their response
     twiml.gather({
