@@ -966,10 +966,11 @@ app.post('/outbound/voicemail-handler', (req, res) => {
   const answeredBy = req.body.AnsweredBy || 'unknown';
   const businessName = req.query.name || '';
   const callId = req.query.id || '';
+  const forceVoicemail = req.query.forceVm === '1';
   
-  console.log(`📞 Outbound call answered: ${answeredBy} (${businessName || 'unknown business'})`);
+  console.log(`📞 Outbound call answered: ${answeredBy} (${businessName || 'unknown business'})${forceVoicemail ? ' [FORCE VM TEST]' : ''}`);
   
-  if (answeredBy === 'machine_end_beep' || answeredBy === 'machine_end_silence' || answeredBy === 'machine_end_other') {
+  if (forceVoicemail || answeredBy === 'machine_end_beep' || answeredBy === 'machine_end_silence' || answeredBy === 'machine_end_other') {
     // Voicemail detected — use AI-personalized script if available, else template
     const callerPhone = req.query.phone || '';
     const script = outbound.getScriptForCall(callerPhone, businessName);
@@ -1144,6 +1145,54 @@ app.post('/outbound/recording', (req, res) => {
   }
   
   res.sendStatus(200);
+});
+
+/**
+ * POST /api/outbound/test-script — Call a number with a specific industry script for testing/iteration.
+ * Body: { phone, industry, businessName? }
+ * Example: { "phone": "8175551234", "industry": "plumber", "businessName": "Test Plumbing" }
+ */
+app.post('/api/outbound/test-script', async (req, res) => {
+  const { phone, industry, businessName } = req.body;
+
+  if (!phone) return res.status(400).json({ error: 'phone is required' });
+  if (!industry) return res.status(400).json({ error: 'industry is required (plumber, hvac, garage_door, septic, electrician, roofer, dental, legal, etc.)' });
+
+  let normalized = phone.replace(/[^\d+]/g, '');
+  if (!normalized.startsWith('+')) normalized = '+1' + normalized;
+
+  const testBizName = businessName || `Test ${industry.charAt(0).toUpperCase() + industry.slice(1)} Co`;
+
+  // Force the industry script by caching a fake script under the test phone
+  // We want the TEMPLATE script, not an AI-generated one, so we skip personalization
+  const script = outbound.getVoicemailScript(testBizName);
+  console.log(`🧪 Test script call → ${normalized} | industry: ${industry} | biz: ${testBizName}`);
+  console.log(`📝 Script preview: ${script.substring(0, 120)}...`);
+
+  const callId = require('uuid').v4();
+  try {
+    const twilioClient = require('twilio')(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+    const call = await twilioClient.calls.create({
+      to: normalized,
+      from: outbound.FROM_NUMBER,
+      url: `${outbound.BASE_URL}/outbound/voicemail-handler?id=${callId}&name=${encodeURIComponent(testBizName)}&phone=${encodeURIComponent(normalized)}&forceVm=1`,
+      statusCallback: `${outbound.BASE_URL}/outbound/status?id=${callId}&name=${encodeURIComponent(testBizName)}`,
+      statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
+      record: true,
+      recordingStatusCallback: `${outbound.BASE_URL}/outbound/recording?id=${callId}`,
+      machineDetection: 'DetectMessageEnd',
+      machineDetectionTimeout: 30,
+      machineDetectionSpeechThreshold: 1200,
+      machineDetectionSpeechEndThreshold: 900,
+      machineDetectionSilenceTimeout: 3000,
+      timeout: 25,
+    });
+
+    res.json({ status: 'calling', callSid: call.sid, industry, businessName: testBizName, phone: normalized });
+  } catch (err) {
+    console.error(`❌ Test call failed:`, err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 /**
