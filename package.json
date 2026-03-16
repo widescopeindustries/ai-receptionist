@@ -30,7 +30,8 @@
     "resend": "^6.9.2",
     "stripe": "^20.2.0",
     "twilio": "^4.20.0",
-    "uuid": "^13.0.0"
+    "uuid": "^13.0.0",
+    "ws": "^8.19.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"

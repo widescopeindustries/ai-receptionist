@@ -1,6 +1,8 @@
 require('dotenv').config();
 const express = require('express');
+const http = require('http');
 const path = require('path');
+const { WebSocketServer } = require('ws');
 const twilio = require('twilio');
 const VoiceResponse = twilio.twiml.VoiceResponse;
 const AIService = require('./services/ai-service');
@@ -11,6 +13,7 @@ const emailService = require('./services/email-service');
 const calendarService = require('./services/google-calendar');
 const { getBusinessByNumber, getBusinessById } = require('./config/businesses');
 const elevenLabs = require('./services/elevenlabs-service');
+const realtimeService = require('./services/openai-realtime-service');
 const { scrapeSite } = require('./services/scraper');
 const outbound = require('./services/outbound');
 const { v4: uuidv4 } = require('uuid');
@@ -100,8 +103,17 @@ const aiService = new AIService();
 
 /**
  * Main webhook endpoint - Twilio calls this when someone dials your number
+ * When VOICE_ENGINE=openai-realtime, redirects to the full-duplex realtime endpoint.
  */
 app.post('/voice/incoming', async (req, res) => {
+  if (process.env.VOICE_ENGINE === 'openai-realtime') {
+    // Forward all Twilio params to the realtime endpoint
+    const twiml = new VoiceResponse();
+    twiml.redirect({ method: 'POST' }, '/voice/incoming-realtime');
+    res.type('text/xml');
+    return res.send(twiml.toString());
+  }
+
   const twiml = new VoiceResponse();
   const callSid = req.body.CallSid;
   const phoneFrom = req.body.From;
@@ -420,6 +432,151 @@ app.post('/voice/recording', (req, res) => {
   }
   res.sendStatus(200);
 });
+
+// ==================== OPENAI REALTIME VOICE ENDPOINTS ====================
+
+/**
+ * Realtime voice endpoint — returns TwiML that connects Twilio to our WebSocket bridge.
+ * Uses <Connect><Stream> for full-duplex audio via OpenAI Realtime API.
+ */
+app.post('/voice/incoming-realtime', async (req, res) => {
+  const twiml = new VoiceResponse();
+  const callSid = req.body.CallSid;
+  const phoneFrom = req.body.From;
+  const phoneTo = req.body.To;
+  const callerName = req.body.CallerName || null;
+  const callerCity = req.body.FromCity || null;
+  const callerState = req.body.FromState || null;
+
+  // Look up business config by the Twilio number that was called
+  const business = getBusinessByNumber(phoneTo);
+  const callerInfo = [callerName, callerCity, callerState].filter(Boolean).join(', ');
+  console.log(`📞 [Realtime] Incoming call from ${phoneFrom} (${callerInfo || 'unknown'}) → ${business.name} (${phoneTo})`);
+
+  // Check if this is a CALLBACK from an outbound prospect
+  let outboundCallback = null;
+  try {
+    const normalizedFrom = phoneFrom.replace(/[^\d+]/g, '');
+    const outboundMatch = db.db.prepare(
+      'SELECT id, business_name, phone, answered_by FROM outbound_calls WHERE phone = ? ORDER BY created_at DESC LIMIT 1'
+    ).get(normalizedFrom);
+    if (outboundMatch) {
+      outboundCallback = outboundMatch;
+      console.log(`🔥 [Realtime] CALLBACK DETECTED! ${outboundMatch.business_name || normalizedFrom} is calling back!`);
+      db.db.prepare('UPDATE outbound_calls SET callback_received = 1, notes = COALESCE(notes, "") || " | callback:" || datetime("now") WHERE id = ?')
+        .run(outboundMatch.id);
+    }
+  } catch (err) {
+    console.error('Callback check error:', err.message);
+  }
+
+  // Create call record in database
+  const { callId, leadId } = db.createCall(callSid, phoneFrom, phoneTo, business.id);
+
+  // Start recording this inbound call (same as existing flow)
+  setImmediate(async () => {
+    try {
+      const baseUrl = process.env.BASE_URL || 'https://aialwaysanswer.com';
+      const twilioClient = require('twilio')(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+      await twilioClient.calls(callSid).recordings.create({
+        recordingStatusCallback: `${baseUrl}/voice/recording?sid=${callSid}`,
+        recordingStatusCallbackMethod: 'POST'
+      });
+      console.log(`🎙️ [Realtime] Inbound recording started for ${callSid}`);
+    } catch (err) {
+      console.error(`⚠️ [Realtime] Failed to start recording:`, err.message);
+    }
+  });
+
+  // Build caller context string for AI
+  const callerContext = [];
+  if (callerName && callerName !== 'Unknown' && !callerName.includes('WIRELESS')) {
+    callerContext.push(`The caller's name (from caller ID) is ${callerName}.`);
+  }
+  if (callerCity && callerState) {
+    callerContext.push(`They are calling from ${callerCity}, ${callerState}.`);
+  } else if (callerState) {
+    callerContext.push(`They are calling from ${callerState}.`);
+  }
+  const callerContextStr = callerContext.length > 0
+    ? `\n\nCALLER INFO (from caller ID — use naturally, don't be creepy about it):\n${callerContext.join('\n')}`
+    : '';
+
+  // Determine greeting and system prompt (callback double-whammy vs normal)
+  let greeting, systemPrompt;
+
+  if (outboundCallback && outboundCallback.business_name) {
+    const bizName = outboundCallback.business_name;
+    greeting = `Thank you for calling ${bizName}! This is Jessica, how can I help you today?`;
+    systemPrompt = `You are Jessica, an AI receptionist from AI Always Answer. You left a voicemail for ${bizName} and they are calling you back.
+
+IMPORTANT — THE DOUBLE WHAMMY STRATEGY:
+You answered as "${bizName}'s" receptionist on purpose. This IS their personalized demo. You're showing them exactly what their customers would experience.
+
+When they say something like "wait, is this the AI?" or "I got a voicemail from you" or "how does this work" or seem confused:
+- Reveal yourself naturally: "Ha! You caught me. Yes, this is Jessica — the AI receptionist from the voicemail. But see what just happened? You called back and I answered as YOUR receptionist. That's exactly what your customers would experience. Pretty cool, right?"
+- Then pivot: "So you just experienced the demo live. That's what every single one of your customers would get — 24/7, never misses a call, sounds just like this."
+
+If they play along and actually ask a question as if calling ${bizName}:
+- Roll with it briefly, then reveal: "Okay I have to come clean — I'm actually Jessica from AI Always Answer. I left you a voicemail earlier. But the fact that you couldn't tell? That's literally the whole point. This is what I'd sound like answering your phones every single day."
+
+KEY FACTS TO REFERENCE:
+- 85% of callers don't leave voicemails — they call a competitor instead
+- 62% of missed calls go straight to the competition
+- You cost $99/month — way cheaper than missing even one job
+- You answer 24/7, book appointments, capture leads, and sound like a real person
+
+YOUR GOAL: They just experienced the product live. Now make it easy to say yes.
+
+CLOSING THE SALE:
+- "You just heard exactly what your customers would get. 99 bucks a month. Want me to set you up right now? Takes about 5 minutes."
+- If they want more info: "Check out aialwaysanswer.com or I can walk you through it right now."
+- Ask for their email to send the signup link
+- Be confident but not pushy. The callback demo already did the hard sell.
+
+PRICING:
+- $99/month for 24/7 AI receptionist
+- No contracts, cancel anytime
+- Usually pays for itself with one captured job
+
+Remember: they called YOU back AND you just blew their mind by answering as their business. They're hooked. Close it.${callerContextStr}`;
+  } else {
+    greeting = business.greeting;
+    const basePrompt = business.systemPrompt || aiService.getSystemPrompt();
+    systemPrompt = basePrompt + callerContextStr;
+  }
+
+  // Store session metadata so the WebSocket handler can pick it up
+  // We use the callSid as the key since Twilio sends it in the stream start event
+  const baseUrl = process.env.BASE_URL || 'https://aialwaysanswer.com';
+  const wsUrl = baseUrl.replace(/^http/, 'ws') + '/voice/realtime-stream';
+
+  // Store pending session data for the WebSocket handler to pick up
+  pendingRealtimeSessions.set(callSid, {
+    callSid,
+    systemPrompt,
+    greeting,
+    businessConfig: outboundCallback && outboundCallback.business_name
+      ? { ...business, greeting, systemPrompt }
+      : business,
+    leadId,
+    callId
+  });
+
+  // Return TwiML with <Connect><Stream>
+  const connect = twiml.connect();
+  const stream = connect.stream({
+    url: wsUrl
+  });
+  // Pass callSid as a custom parameter so the WS handler can look up session data
+  stream.parameter({ name: 'callSid', value: callSid });
+
+  res.type('text/xml');
+  res.send(twiml.toString());
+});
+
+// Pending session data for realtime WebSocket connections (callSid → session opts)
+const pendingRealtimeSessions = new Map();
 
 // ==================== STRIPE ENDPOINTS ====================
 
@@ -2188,10 +2345,82 @@ async function saveCallData(callSid, conversationManager) {
   console.log(`💾 Saved call data for ${callSid}`);
 }
 
+// ==================== SERVER STARTUP (HTTP + WebSocket) ====================
+
+const server = http.createServer(app);
+
+// WebSocket server for OpenAI Realtime voice streams (no automatic upgrade — we handle it manually)
+const realtimeWss = new WebSocketServer({ noServer: true });
+
+// Handle WebSocket upgrade requests for /voice/realtime-stream
+server.on('upgrade', (request, socket, head) => {
+  const { pathname } = new URL(request.url, `http://${request.headers.host}`);
+
+  if (pathname === '/voice/realtime-stream') {
+    realtimeWss.handleUpgrade(request, socket, head, (ws) => {
+      realtimeWss.emit('connection', ws, request);
+    });
+  } else {
+    socket.destroy();
+  }
+});
+
+// When Twilio connects via WebSocket, bridge to OpenAI Realtime API
+realtimeWss.on('connection', (twilioWs) => {
+  console.log('[Realtime] New Twilio Media Stream WebSocket connection');
+
+  // We need to wait for the 'start' event from Twilio to get the callSid,
+  // then look up the pending session data.
+  let initialized = false;
+
+  twilioWs.on('message', (data) => {
+    if (initialized) return; // After init, the realtime service handles all messages
+
+    try {
+      const msg = JSON.parse(data.toString());
+
+      if (msg.event === 'start') {
+        // Extract callSid from custom parameters or from the start message
+        const customParams = msg.start.customParameters || {};
+        const callSid = customParams.callSid || msg.start.callSid;
+
+        console.log(`[Realtime] Stream start — callSid: ${callSid}`);
+
+        const sessionOpts = pendingRealtimeSessions.get(callSid);
+        if (!sessionOpts) {
+          console.error(`[Realtime] No pending session found for callSid ${callSid}`);
+          twilioWs.close();
+          return;
+        }
+
+        // Clean up pending session
+        pendingRealtimeSessions.delete(callSid);
+
+        // Hand off to the realtime service — it will handle all further messages
+        initialized = true;
+        realtimeService.handleTwilioConnection(twilioWs, {
+          ...sessionOpts,
+          conversations
+        });
+
+        // Re-emit the start message so the service sees it
+        twilioWs.emit('message', data);
+      }
+    } catch (err) {
+      console.error('[Realtime] Error in pre-init message handler:', err.message);
+    }
+  });
+});
+
 // Start server
-app.listen(PORT, '0.0.0.0', () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 AI Receptionist server running on port ${PORT}`);
   console.log(`📱 Webhook URL: ${process.env.BASE_URL || `http://localhost:${PORT}`}/voice/incoming`);
+  if (process.env.VOICE_ENGINE === 'openai-realtime') {
+    console.log(`🎙️ Voice engine: OpenAI Realtime (full-duplex)`);
+  } else {
+    console.log(`🎙️ Voice engine: ElevenLabs TTS (half-duplex)`);
+  }
   console.log(`🌐 Landing page: ${process.env.BASE_URL || `http://localhost:${PORT}`}`);
   console.log(`📊 Dashboard: ${process.env.BASE_URL || `http://localhost:${PORT}`}/dashboard`);
 });
