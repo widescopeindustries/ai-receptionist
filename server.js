@@ -13,6 +13,7 @@ const emailService = require('./services/email-service');
 const calendarService = require('./services/google-calendar');
 const { getBusinessByNumber, getBusinessById } = require('./config/businesses');
 const elevenLabs = require('./services/elevenlabs-service');
+const openaiTTS = require('./services/openai-tts-service');
 const realtimeService = require('./services/openai-realtime-service');
 const { scrapeSite } = require('./services/scraper');
 const outbound = require('./services/outbound');
@@ -77,8 +78,13 @@ const conversations = new Map();
  */
 app.get('/voice/tts', (req, res) => {
   const text = req.query.text || 'Hello';
-  console.log(`🎙️  ElevenLabs TTS: "${text.substring(0, 60)}..."`);
-  elevenLabs.streamTTS(text, res);
+  if (process.env.VOICE_ENGINE === 'openai-realtime') {
+    console.log(`🎙️  OpenAI TTS (shimmer): "${text.substring(0, 60)}..."`);
+    openaiTTS.streamTTS(text, res);
+  } else {
+    console.log(`🎙️  ElevenLabs TTS: "${text.substring(0, 60)}..."`);
+    elevenLabs.streamTTS(text, res);
+  }
 });
 
 /**
@@ -87,9 +93,13 @@ app.get('/voice/tts', (req, res) => {
  */
 function speakText(twiml, text, fallbackVoice) {
   const cleaned = cleanTextForTTS(text);
-  if (process.env.ELEVENLABS_API_KEY) {
+  const baseUrl = process.env.BASE_URL || 'https://aialwaysanswer.com';
+  if (process.env.VOICE_ENGINE === 'openai-realtime') {
+    // OpenAI TTS (shimmer) — matches the Realtime voice
     const encoded = encodeURIComponent(cleaned);
-    const baseUrl = process.env.BASE_URL || 'https://aialwaysanswer.com';
+    twiml.play(`${baseUrl}/voice/tts?text=${encoded}`);
+  } else if (process.env.ELEVENLABS_API_KEY) {
+    const encoded = encodeURIComponent(cleaned);
     twiml.play(`${baseUrl}/voice/tts?text=${encoded}`);
   } else {
     twiml.say({ voice: fallbackVoice || 'Polly.Danielle-Neural', language: 'en-US' }, cleaned);
@@ -1147,28 +1157,75 @@ app.post('/outbound/voicemail-handler', (req, res) => {
     twiml.hangup();
     console.log(`📝 Voicemail left for: ${businessName || 'unknown'}`);
   } else if (answeredBy === 'human') {
-    // Human answered — short live pitch
-    const livePitch = businessName
-      ? `Oh wow, hi! This is Jessica from AI Always Answer. I'm honestly surprised someone picked up, I was calling after hours expecting to get your voicemail. ` +
-        `That actually makes my point though... did you know that 85 percent of your customers won't wait for voicemail? They just hang up and call the next company. ` +
-        `I'm an AI receptionist and I can answer every call for ${businessName}, 24 7, book appointments, and capture every lead... ` +
-        `and you're not going to believe this... it's 99 bucks a month. ` +
-        `Can I send you a quick demo? You'll see exactly how I'd answer calls for your business.`
-      : `Oh wow, hi! I'm Jessica from AI Always Answer. I was honestly expecting your voicemail. ` +
-        `Did you know 85 percent of callers won't leave a voicemail? They just call your competitor instead. ` +
-        `I'm an AI receptionist, 99 bucks a month, I answer every call 24 7. Can I send you a quick demo?`;
-    speakText(twiml, livePitch);
-    // Gather their response
-    twiml.gather({
-      input: 'speech',
-      timeout: 5,
-      speechTimeout: 'auto',
-      action: `/outbound/response?id=${callId}&name=${encodeURIComponent(businessName)}`,
-      method: 'POST'
-    });
-    twiml.pause({ length: 2 });
-    speakText(twiml, `No worries! If you change your mind, call us anytime at 8 1 7, 5 3 3, 8 4 2 4. Have a great night!`);
-    twiml.hangup();
+    if (process.env.VOICE_ENGINE === 'openai-realtime') {
+      // Full-duplex Realtime — same experience as inbound calls
+      const callSid = req.body.CallSid;
+      const baseUrl = process.env.BASE_URL || 'https://aialwaysanswer.com';
+      const wsUrl = baseUrl.replace(/^http/, 'ws') + '/voice/realtime-stream';
+
+      const greeting = businessName
+        ? `Oh wow, hi! This is Jessica from AI Always Answer. I'm honestly surprised someone picked up — I was calling after hours expecting to get your voicemail!`
+        : `Oh wow, hi! I'm Jessica from AI Always Answer. I was honestly expecting your voicemail!`;
+
+      const systemPrompt = `You are Jessica, an AI sales rep from AI Always Answer. You just called ${businessName || 'a business'} as an outbound prospect and they picked up live.
+
+PERSONALITY: Warm, surprised, excited that someone actually answered. You were expecting voicemail.
+
+YOUR PITCH:
+- 85% of callers don't leave voicemails — they call a competitor instead
+- 62% of missed calls go straight to the competition
+- You're an AI receptionist for $99/month — answer every call 24/7, book appointments, capture leads
+- Sound like a real person, never miss a call
+
+GOAL: Build rapport, pitch the service, try to close. If they're interested, ask for their email to send a demo link.
+
+CLOSING:
+- "Want me to send you a quick demo? You'll see exactly how I'd answer calls for ${businessName || 'your business'}."
+- If yes: ask for email, use send_setup_link tool
+- If they want more info: "Check out aialwaysanswer.com or I can walk you through it right now"
+- Be confident but not pushy. If they say no, gracefully wrap up: "No worries at all! If you change your mind, call us anytime at 817-533-8424."
+
+PRICING:
+- $99/month for 24/7 AI receptionist
+- No contracts, cancel anytime
+- Usually pays for itself with one captured job`;
+
+      pendingRealtimeSessions.set(callSid, {
+        callSid,
+        systemPrompt,
+        greeting,
+        businessConfig: { id: 'outbound', name: businessName || 'AI Always Answer' },
+        leadId: null,
+        callId: callId || null
+      });
+
+      const connect = twiml.connect();
+      const stream = connect.stream({ url: wsUrl });
+      stream.parameter({ name: 'callSid', value: callSid });
+    } else {
+      // Half-duplex — static TwiML pitch with ElevenLabs TTS
+      const livePitch = businessName
+        ? `Oh wow, hi! This is Jessica from AI Always Answer. I'm honestly surprised someone picked up, I was calling after hours expecting to get your voicemail. ` +
+          `That actually makes my point though... did you know that 85 percent of your customers won't wait for voicemail? They just hang up and call the next company. ` +
+          `I'm an AI receptionist and I can answer every call for ${businessName}, 24 7, book appointments, and capture every lead... ` +
+          `and you're not going to believe this... it's 99 bucks a month. ` +
+          `Can I send you a quick demo? You'll see exactly how I'd answer calls for your business.`
+        : `Oh wow, hi! I'm Jessica from AI Always Answer. I was honestly expecting your voicemail. ` +
+          `Did you know 85 percent of callers won't leave a voicemail? They just call your competitor instead. ` +
+          `I'm an AI receptionist, 99 bucks a month, I answer every call 24 7. Can I send you a quick demo?`;
+      speakText(twiml, livePitch);
+      // Gather their response
+      twiml.gather({
+        input: 'speech',
+        timeout: 5,
+        speechTimeout: 'auto',
+        action: `/outbound/response?id=${callId}&name=${encodeURIComponent(businessName)}`,
+        method: 'POST'
+      });
+      twiml.pause({ length: 2 });
+      speakText(twiml, `No worries! If you change your mind, call us anytime at 8 1 7, 5 3 3, 8 4 2 4. Have a great night!`);
+      twiml.hangup();
+    }
   } else {
     // Unknown / machine_start — AMD hasn't decided yet or detection failed.
     // DO NOT play the voicemail script — a real human might be on the line.
