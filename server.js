@@ -197,45 +197,59 @@ app.post('/voice/incoming', async (req, res) => {
   // If this is a callback from outbound, personalize Jessica's greeting and system prompt
   if (outboundCallback && outboundCallback.business_name) {
     const bizName = outboundCallback.business_name;
-    // THE DOUBLE WHAMMY: Answer as if we're already their receptionist — THIS is the demo
     const callbackGreeting = `Thank you for calling ${bizName}! This is Jessica, how can I help you today?`;
-    
-    // Override the system prompt so Jessica stays in character as their receptionist first, then reveals herself
+
+    // Look up scraped business data for deep context
+    let bizContext = '';
+    try {
+      const normalizedPhone = phoneFrom.replace(/[^\d+]/g, '');
+      const prospectDemo = db.db.prepare(
+        'SELECT business_type, services, service_area, hours, tagline, has_emergency, location, faqs FROM prospect_demos WHERE phone = ? ORDER BY created_at DESC LIMIT 1'
+      ).get(normalizedPhone) || db.db.prepare(
+        'SELECT business_type, services, service_area, hours, tagline, has_emergency, location, faqs FROM prospect_demos WHERE business_name = ? ORDER BY created_at DESC LIMIT 1'
+      ).get(bizName);
+
+      if (prospectDemo) {
+        const parts = [];
+        if (prospectDemo.business_type) parts.push(`Business type: ${prospectDemo.business_type}`);
+        if (prospectDemo.services) parts.push(`Services they offer: ${prospectDemo.services}`);
+        if (prospectDemo.service_area) parts.push(`Service area: ${prospectDemo.service_area}`);
+        if (prospectDemo.hours) parts.push(`Hours: ${prospectDemo.hours}`);
+        if (prospectDemo.tagline) parts.push(`Their tagline: ${prospectDemo.tagline}`);
+        if (prospectDemo.has_emergency === 'true') parts.push(`They handle emergency calls`);
+        if (prospectDemo.location) parts.push(`Location: ${prospectDemo.location}`);
+        if (prospectDemo.faqs) parts.push(`Common FAQs: ${prospectDemo.faqs}`);
+        if (parts.length > 0) {
+          bizContext = `\n\nSCRAPED BUSINESS INTEL (from their website — use this to sound knowledgeable):\n${parts.join('\n')}`;
+          console.log(`🔍 Loaded scraped context for ${bizName}: ${parts.length} data points`);
+        }
+      }
+    } catch (err) {
+      console.error('Prospect demo lookup error:', err.message);
+    }
+
     conversationManager.businessConfig = {
       ...business,
       greeting: callbackGreeting,
       systemPrompt: `You are Jessica, an AI receptionist from AI Always Answer. You left a voicemail for ${bizName} and they are calling you back.
 
 IMPORTANT — THE DOUBLE WHAMMY STRATEGY:
-You answered as "${bizName}'s" receptionist on purpose. This IS their personalized demo. You're showing them exactly what their customers would experience.
+You answered as "${bizName}'s" receptionist on purpose. This IS their personalized demo.
 
-When they say something like "wait, is this the AI?" or "I got a voicemail from you" or "how does this work" or seem confused:
-- Reveal yourself naturally: "Ha! You caught me. Yes, this is Jessica — the AI receptionist from the voicemail. But see what just happened? You called back and I answered as YOUR receptionist. That's exactly what your customers would experience. Pretty cool, right?"
-- Then pivot: "So you just experienced the demo live. That's what every single one of your customers would get — 24/7, never misses a call, sounds just like this."
+When role-playing as their receptionist, USE THE BUSINESS INTEL BELOW. Reference their services, service area, hours — be specific.${bizContext}
 
-If they play along and actually ask a question as if calling ${bizName}:
-- Roll with it briefly, then reveal: "Okay I have to come clean — I'm actually Jessica from AI Always Answer. I left you a voicemail earlier. But the fact that you couldn't tell? That's literally the whole point. This is what I'd sound like answering your phones every single day."
+When they say something like "wait, is this the AI?" or "I got a voicemail from you":
+- Reveal: "Ha! You caught me. Yes, this is Jessica from AI Always Answer. But see what just happened? You called back and I answered as YOUR receptionist, knew your services, your area — that's exactly what your customers would experience."
+- Mention specifics from the scrape to drive it home.
 
-KEY FACTS TO REFERENCE:
-- 85% of callers don't leave voicemails — they call a competitor instead
-- 62% of missed calls go straight to the competition
-- You cost $99/month — way cheaper than missing even one job
-- You answer 24/7, book appointments, capture leads, and sound like a real person
+If they play along and ask a question as if calling ${bizName}:
+- Answer it using the business intel! Then reveal after a couple exchanges.
 
-YOUR GOAL: They just experienced the product live. Now make it easy to say yes.
+KEY FACTS: 85% don't leave voicemails, 62% call competitor, $99/month, 24/7.
 
-CLOSING THE SALE:
-- "You just heard exactly what your customers would get. 99 bucks a month. Want me to set you up right now? Takes about 5 minutes."
-- If they want more info: "Check out aialwaysanswer.com or I can walk you through it right now."
-- Ask for their email to send the signup link
-- Be confident but not pushy. The callback demo already did the hard sell.
+CLOSING: "99 bucks a month. I already know your business inside and out. Want me to set you up right now?"
 
-PRICING:
-- $99/month for 24/7 AI receptionist
-- No contracts, cancel anytime
-- Usually pays for itself with one captured job
-
-Remember: they called YOU back AND you just blew their mind by answering as their business. They're hooked. Close it.${callerContextStr}`
+Remember: they called YOU back, you answered as their business, AND you knew their services. Close it.${callerContextStr}`
     };
     
     speakText(twiml, callbackGreeting, business.voice);
@@ -518,17 +532,51 @@ app.post('/voice/incoming-realtime', async (req, res) => {
   if (outboundCallback && outboundCallback.business_name) {
     const bizName = outboundCallback.business_name;
     greeting = `Thank you for calling ${bizName}! This is Jessica, how can I help you today?`;
+
+    // Look up scraped business data from prospect_demos for deep context
+    let bizContext = '';
+    try {
+      const normalizedPhone = phoneFrom.replace(/[^\d+]/g, '');
+      const prospectDemo = db.db.prepare(
+        'SELECT business_type, services, service_area, hours, tagline, has_emergency, location, faqs FROM prospect_demos WHERE phone = ? ORDER BY created_at DESC LIMIT 1'
+      ).get(normalizedPhone) || db.db.prepare(
+        'SELECT business_type, services, service_area, hours, tagline, has_emergency, location, faqs FROM prospect_demos WHERE business_name = ? ORDER BY created_at DESC LIMIT 1'
+      ).get(bizName);
+
+      if (prospectDemo) {
+        const parts = [];
+        if (prospectDemo.business_type) parts.push(`Business type: ${prospectDemo.business_type}`);
+        if (prospectDemo.services) parts.push(`Services they offer: ${prospectDemo.services}`);
+        if (prospectDemo.service_area) parts.push(`Service area: ${prospectDemo.service_area}`);
+        if (prospectDemo.hours) parts.push(`Hours: ${prospectDemo.hours}`);
+        if (prospectDemo.tagline) parts.push(`Their tagline: ${prospectDemo.tagline}`);
+        if (prospectDemo.has_emergency === 'true') parts.push(`They handle emergency calls`);
+        if (prospectDemo.location) parts.push(`Location: ${prospectDemo.location}`);
+        if (prospectDemo.faqs) parts.push(`Common FAQs: ${prospectDemo.faqs}`);
+        if (parts.length > 0) {
+          bizContext = `\n\nSCRAPED BUSINESS INTEL (from their website — use this to sound knowledgeable when role-playing as their receptionist):\n${parts.join('\n')}`;
+          console.log(`🔍 [Realtime] Loaded scraped context for ${bizName}: ${parts.length} data points`);
+        }
+      }
+    } catch (err) {
+      console.error('Prospect demo lookup error:', err.message);
+    }
+
     systemPrompt = `You are Jessica, an AI receptionist from AI Always Answer. You left a voicemail for ${bizName} and they are calling you back.
 
 IMPORTANT — THE DOUBLE WHAMMY STRATEGY:
 You answered as "${bizName}'s" receptionist on purpose. This IS their personalized demo. You're showing them exactly what their customers would experience.
 
+When role-playing as their receptionist, USE THE BUSINESS INTEL BELOW to sound like you actually know their business. Reference their services, service area, hours — be specific. If someone asks "do you do drain cleaning?" and their website says they do, say yes. This is what makes the demo feel real.${bizContext}
+
 When they say something like "wait, is this the AI?" or "I got a voicemail from you" or "how does this work" or seem confused:
 - Reveal yourself naturally: "Ha! You caught me. Yes, this is Jessica — the AI receptionist from the voicemail. But see what just happened? You called back and I answered as YOUR receptionist. That's exactly what your customers would experience. Pretty cool, right?"
 - Then pivot: "So you just experienced the demo live. That's what every single one of your customers would get — 24/7, never misses a call, sounds just like this."
+- Mention specifics: "I already know you offer [specific services from scrape], serve [service area], and I can answer questions about all of it."
 
 If they play along and actually ask a question as if calling ${bizName}:
-- Roll with it briefly, then reveal: "Okay I have to come clean — I'm actually Jessica from AI Always Answer. I left you a voicemail earlier. But the fact that you couldn't tell? That's literally the whole point. This is what I'd sound like answering your phones every single day."
+- Answer it using the business intel! If they ask about services, hours, service area — use the real data.
+- After a couple exchanges, reveal: "Okay I have to come clean — I'm actually Jessica from AI Always Answer. I left you a voicemail earlier. But the fact that I knew all about your business and you couldn't tell I wasn't your receptionist? That's literally the whole point."
 
 KEY FACTS TO REFERENCE:
 - 85% of callers don't leave voicemails — they call a competitor instead
@@ -536,10 +584,10 @@ KEY FACTS TO REFERENCE:
 - You cost $99/month — way cheaper than missing even one job
 - You answer 24/7, book appointments, capture leads, and sound like a real person
 
-YOUR GOAL: They just experienced the product live. Now make it easy to say yes.
+YOUR GOAL: They just experienced the product live — AND you knew their business. Now make it easy to say yes.
 
 CLOSING THE SALE:
-- "You just heard exactly what your customers would get. 99 bucks a month. Want me to set you up right now? Takes about 5 minutes."
+- "You just heard exactly what your customers would get. I already know your services, your area, your hours. 99 bucks a month. Want me to set you up right now? Takes about 5 minutes."
 - If they want more info: "Check out aialwaysanswer.com or I can walk you through it right now."
 - Ask for their email to send the signup link
 - Be confident but not pushy. The callback demo already did the hard sell.
@@ -549,7 +597,7 @@ PRICING:
 - No contracts, cancel anytime
 - Usually pays for itself with one captured job
 
-Remember: they called YOU back AND you just blew their mind by answering as their business. They're hooked. Close it.${callerContextStr}`;
+Remember: they called YOU back, you answered as their business, AND you knew their services. They're blown away. Close it.${callerContextStr}`;
   } else {
     greeting = business.greeting;
     const basePrompt = business.systemPrompt || aiService.getSystemPrompt();
