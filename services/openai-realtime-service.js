@@ -33,16 +33,18 @@ class OpenAIRealtimeService {
       {
         type: 'function',
         name: 'capture_lead',
-        description: "Call this as soon as you have the caller's name, email, and website. This notifies the owner to follow up within 10 minutes.",
+        description: "Call this when you have collected the caller's info. At minimum get their name. Email and phone are nice to have. IMPORTANT: Only put real values — if you didn't clearly hear a name, ask again before calling this. Never use placeholder values like 'unknown' or 'over' or partial words.",
         parameters: {
           type: 'object',
           properties: {
-            name: { type: 'string', description: 'Full name of the caller' },
-            email: { type: 'string', description: 'Email address of the caller' },
-            website: { type: 'string', description: 'Their existing website URL, or "none" if they do not have one' },
-            businessType: { type: 'string', description: 'Type of business (e.g. HVAC, plumber, law firm)' }
+            name: { type: 'string', description: 'Full name of the caller. Must be a real name — ask to confirm if unclear. Do NOT pass partial words or gibberish.' },
+            email: { type: 'string', description: 'Email address if provided. Leave empty string if not collected — do not guess or put "unknown".' },
+            phone: { type: 'string', description: 'Best callback phone number if different from the one they called from.' },
+            website: { type: 'string', description: 'Their existing website URL, or empty if not mentioned.' },
+            businessName: { type: 'string', description: 'Name of their business if mentioned.' },
+            businessType: { type: 'string', description: 'Type of business (e.g. HVAC, plumber, law firm, foundation repair).' }
           },
-          required: ['name', 'email']
+          required: ['name']
         }
       },
       {
@@ -375,29 +377,40 @@ class OpenAIRealtimeService {
         callerPhone = callRecord?.phone_from || null;
       } catch (e) { /* ignore */ }
 
-      console.log(`${LOG_PREFIX} Lead captured: ${args.name} | ${args.email} | ${args.website || 'no website'}`);
+      // Validate — reject garbage names
+      const suspectNames = ['over', 'unknown', 'none', 'n/a', 'test', 'hello', 'hi', 'hey', 'the', 'a', 'an', 'yes', 'no', 'ok', 'back'];
+      if (!args.name || args.name.trim().length < 2 || suspectNames.includes(args.name.trim().toLowerCase())) {
+        console.log(`${LOG_PREFIX} Lead capture rejected — bad name: "${args.name}". Asking to retry.`);
+        this._sendToolResult(session, call_id, 'Sorry, I didn\'t catch the name clearly. Please ask the caller to repeat their full name before saving.');
+        return;
+      }
 
-      // Send email alert (same as existing flow)
+      const contactPhone = args.phone || callerPhone;
+      console.log(`${LOG_PREFIX} ✅ Lead captured: ${args.name} | ${args.email || 'no email'} | ${args.businessName || args.businessType || 'unknown biz'} | ${contactPhone}`);
+
+      // Send email alert
       emailService.sendLeadAlert({
         name: args.name,
-        email: args.email,
+        email: args.email || 'Not provided',
         website: args.website || 'Not provided',
-        businessType: args.businessType || 'Unknown',
-        phone: callerPhone,
+        businessType: args.businessType || args.businessName || 'Unknown',
+        businessName: args.businessName || '',
+        phone: contactPhone,
         callTime
       }).catch(err => {
         console.error(`${LOG_PREFIX} Lead alert email error:`, err.message);
       });
 
-      // Update lead in DB if we have info
+      // Update lead in DB
       if (session.conversationManager.leadId) {
         try {
           const updates = [];
           const values = [];
           if (args.name) { updates.push('name = ?'); values.push(args.name); }
-          if (args.email) { updates.push('email = ?'); values.push(args.email); }
-          if (args.businessType) { updates.push('company = ?'); values.push(args.businessType); }
+          if (args.email && args.email !== '' && args.email.toLowerCase() !== 'unknown') { updates.push('email = ?'); values.push(args.email); }
+          if (args.businessType || args.businessName) { updates.push('company = ?'); values.push(args.businessName || args.businessType); }
           if (updates.length > 0) {
+            updates.push('interest_level = ?'); values.push('high');
             updates.push('updated_at = CURRENT_TIMESTAMP');
             values.push(session.conversationManager.leadId);
             db.db.prepare(`UPDATE leads SET ${updates.join(', ')} WHERE id = ?`).run(...values);
