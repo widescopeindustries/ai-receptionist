@@ -843,6 +843,37 @@ app.get('/api/stats', (req, res) => {
 });
 
 /**
+ * GET /api/recordings/:recordingSid — Proxy Twilio recordings so browsers can play without auth
+ */
+app.get('/api/recordings/:recordingSid', async (req, res) => {
+  try {
+    const { recordingSid } = req.params;
+    if (!recordingSid || !recordingSid.startsWith('RE')) {
+      return res.status(400).send('Invalid recording SID');
+    }
+    const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${process.env.TWILIO_ACCOUNT_SID}/Recordings/${recordingSid}.mp3`;
+    const authHeader = 'Basic ' + Buffer.from(`${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`).toString('base64');
+    
+    const response = await fetch(twilioUrl, {
+      headers: { 'Authorization': authHeader },
+      redirect: 'follow'
+    });
+    
+    if (!response.ok) {
+      return res.status(response.status).send('Recording not found');
+    }
+    
+    res.set('Content-Type', 'audio/mpeg');
+    res.set('Cache-Control', 'public, max-age=86400');
+    const arrayBuffer = await response.arrayBuffer();
+    res.send(Buffer.from(arrayBuffer));
+  } catch (err) {
+    console.error('Recording proxy error:', err.message);
+    res.status(500).send('Failed to fetch recording');
+  }
+});
+
+/**
  * Create a lead from the website form
  */
 app.post('/api/leads', async (req, res) => {
@@ -1053,11 +1084,12 @@ app.get('/dashboard', (req, res) => {
                 <th>Duration</th>
                 <th>Turns</th>
                 <th>Outcome</th>
+                <th>Recording</th>
                 <th>Date</th>
               </tr>
             </thead>
             <tbody id="calls-table">
-              <tr><td colspan="5">Loading...</td></tr>
+              <tr><td colspan="6">Loading...</td></tr>
             </tbody>
           </table>
         </div>
@@ -1088,15 +1120,22 @@ app.get('/dashboard', (req, res) => {
             document.getElementById('leads-table').innerHTML = leadsHtml;
 
             // Render calls
-            const callsHtml = data.recentCalls.map(call => [
+            const callsHtml = data.recentCalls.map(call => {
+              let recHtml = '-';
+              if (call.recording_url) {
+                const m = call.recording_url.match(/Recordings\/(RE[a-zA-Z0-9]+)/);
+                if (m) recHtml = '<audio controls preload="none" style="height:32px;width:200px" src="/api/recordings/' + m[1] + '"></audio>';
+              }
+              return [
               '<tr>',
               '<td>' + (call.phone || call.phone_from) + '</td>',
               '<td>' + (call.duration_seconds || 0) + 's</td>',
               '<td>' + (call.turn_count || 0) + '</td>',
               '<td>' + (call.outcome || '-') + '</td>',
+              '<td>' + recHtml + '</td>',
               '<td>' + new Date(call.created_at).toLocaleDateString() + '</td>',
               '</tr>'
-            ].join('')).join('') || '<tr><td colspan="5">No calls yet</td></tr>';
+            ].join('');}).join('') || '<tr><td colspan="6">No calls yet</td></tr>';
             document.getElementById('calls-table').innerHTML = callsHtml;
           } catch (err) {
             console.error('Failed to load stats:', err);
@@ -3222,9 +3261,11 @@ app.get('/my/dashboard', validateCustomerToken, (req, res) => {
               document.getElementById('calls-tbody').innerHTML = '<tr class="empty-row"><td colspan="5">No calls yet. Forward your calls to start seeing data here.</td></tr>';
             } else {
               document.getElementById('calls-tbody').innerHTML = calls.map(function(c) {
-                const recording = c.recording_url
-                  ? '<audio controls preload="none" src="' + escapeHtml(c.recording_url) + '"></audio>'
-                  : '<span style="color:#9ca3af">-</span>';
+                let recording = '<span style="color:#9ca3af">-</span>';
+                if (c.recording_url) {
+                  const m = c.recording_url.match(/Recordings\\/(RE[a-zA-Z0-9]+)/);
+                  if (m) recording = '<audio controls preload="none" style="height:32px" src="/api/recordings/' + m[1] + '"></audio>';
+                }
                 return '<tr>'
                   + '<td>' + formatDate(c.created_at) + '</td>'
                   + '<td>' + escapeHtml(c.lead_name || c.phone_from || '-') + '</td>'

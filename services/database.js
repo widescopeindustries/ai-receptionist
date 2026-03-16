@@ -596,14 +596,14 @@ class DatabaseService {
     const activeCustomers = this.db.prepare("SELECT COUNT(*) as count FROM customers WHERE status = 'active'").get().count;
 
     const recentLeads = this.db.prepare(`
-      SELECT * FROM leads ORDER BY created_at DESC LIMIT 5
+      SELECT * FROM leads ORDER BY created_at DESC LIMIT 25
     `).all();
 
     const recentCalls = this.db.prepare(`
       SELECT c.*, l.phone, l.name as lead_name
       FROM calls c
       LEFT JOIN leads l ON c.lead_id = l.id
-      ORDER BY c.created_at DESC LIMIT 5
+      ORDER BY c.created_at DESC LIMIT 25
     `).all();
 
     return {
