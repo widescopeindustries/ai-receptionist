@@ -72,21 +72,21 @@ function getVoicemailScript(businessName) {
   const biz = businessName || 'your business';
   const industry = detectIndustry(businessName);
   
-  const closer = `99 bucks a month. That's it. ` +
-    `And here's the fun part... call me back and I'll answer as ${biz}'s receptionist. ` +
-    `You'll hear exactly what your customers would get. ` +
-    `8 1 7, 5 3 3, 8 4 2 4. ` +
-    `That's 8 1 7, 5 3 3, 8 4 2 4. ` +
-    `Don't worry about the time or what day it is... that's kind of the whole point, right? Talk soon!`;
+  const closer = `99 bucks a month! That's it! ` +
+    `And here's the fun part... call me back and I'll answer as ${biz}'s receptionist! ` +
+    `You'll hear exactly what your customers would get! ` +
+    `8 1 7, 5 3 3, 8 4 2 4! ` +
+    `That's 8 1 7, 5 3 3, 8 4 2 4! ` +
+    `And don't worry about what time it is or what day... that's kind of the whole point, right? Talk soon!`;
 
   const scripts = {
-    plumber: `Hey ${biz}, this is Jessica and I'm an AI receptionist. ` +
+    plumber: `Hey! ${biz}! This is Jessica, and I'm an AI receptionist! ` +
       `I just called and got your voicemail. ` +
-      `Now see... I'M patient enough to leave you this voicemail. ` +
-      `But your customers? The ones cankle deep in a plumbing nightmare right now? They are not. ` +
-      `85 out of 100 just hang up and call the next plumber. That plumber answers... and gets the job. ` +
-      `It's 2026. Time to plug the leak... pun intended. ` +
-      `I answer your calls 24 7, talk to your customers, and book the job before they call someone else. ` +
+      `Now see... I'M patient enough to leave you this voicemail! ` +
+      `But your customers? The ones cankle deep in a plumbing nightmare right now? They are NOT! ` +
+      `85 out of 100 just hang up and call the next plumber! That plumber answers... and gets the job! ` +
+      `It's 2026! Time to plug the leak... pun totally intended. ` +
+      `I answer your calls 24 7, talk to your customers, and book the job before they even think about calling someone else! ` +
       `${closer}`,
 
     electrician: `Hey ${biz}, this is Jessica and I'm an AI receptionist. ` +
@@ -276,14 +276,14 @@ function getVoicemailScript(businessName) {
   };
 
   // Default script for unmatched industries
-  const defaultScript = `Hey ${biz}, this is Jessica and I'm an AI receptionist. ` +
+  const defaultScript = `Hey! ${biz}! This is Jessica, and I'm an AI receptionist! ` +
     `I just called your business and got your voicemail. ` +
-    `Now see... I'M patient enough to leave you this voicemail. ` +
-    `But according to research, 85 percent of your customers? They are not. ` +
-    `They don't leave messages. They just hang up and call the next business that answers. ` +
-    `62 percent go straight to your competitor. That's not a guess, those are real numbers. ` +
-    `The average small business loses over 60,000 dollars a year just from missed calls. ` +
-    `I can answer every single call, 24 7, handle your customers, and sound exactly like this. ` +
+    `Now see... I'M patient enough to leave you this voicemail! ` +
+    `But according to research, 85 percent of your customers? They are NOT! ` +
+    `They don't leave messages! They just hang up and call the next business that answers! ` +
+    `62 percent go straight to your competitor! That's not a guess, those are real numbers. ` +
+    `The average small business loses over 60,000 dollars a year just from missed calls! ` +
+    `I can answer every single call, 24 7, handle your customers, and sound exactly like this! ` +
     `${closer}`;
 
   return scripts[industry] || defaultScript;
@@ -432,7 +432,7 @@ async function callProspect({ phone, businessName, prospectId }) {
       machineDetection: 'DetectMessageEnd',  // Wait for beep, then speak
       machineDetectionTimeout: 60,           // 60s — wait for long greetings + beep
       machineDetectionSpeechThreshold: 3500, // 3.5s of speech → machine (not human)
-      machineDetectionSpeechEndThreshold: 4000, // 4s silence after speech to finalize (wait for actual beep)
+      machineDetectionSpeechEndThreshold: 3500, // 3.5s silence after speech to finalize (sweet spot)
       machineDetectionSilenceTimeout: 6000,  // 6s total silence → machine
       timeout: 35,  // Ring for 35 seconds max
     });
