@@ -69,6 +69,19 @@ function cleanTextForTTS(text) {
 app.use('/webhooks/stripe', express.raw({ type: 'application/json' }));
 app.use(express.urlencoded({ extended: false }));
 
+// Cookie parser (simple, no dependency needed)
+app.use((req, res, next) => {
+  req.cookies = {};
+  const cookieHeader = req.headers.cookie;
+  if (cookieHeader) {
+    cookieHeader.split(';').forEach(cookie => {
+      const [name, ...rest] = cookie.trim().split('=');
+      req.cookies[name.trim()] = decodeURIComponent(rest.join('='));
+    });
+  }
+  next();
+});
+
 // Store active conversations
 const conversations = new Map();
 
@@ -134,7 +147,24 @@ app.post('/voice/incoming', async (req, res) => {
   const callerZip = req.body.FromZip || null;
 
   // Look up business config by the Twilio number that was called
-  const business = getBusinessByNumber(phoneTo);
+  // Check hardcoded businesses first, then customer DB for provisioned numbers
+  let business = getBusinessByNumber(phoneTo);
+  if (business.id === 'widescope') {
+    const cust = db.getCustomerByTwilioNumber(phoneTo);
+    if (cust && cust.ai_config) {
+      const config = JSON.parse(cust.ai_config);
+      business = {
+        id: cust.id,
+        name: config.businessName || cust.company || 'AI Always Answer',
+        phone: formatPhoneServer(cust.twilio_number),
+        email: cust.email,
+        notifyEmail: cust.email,
+        voice: 'Polly.Danielle-Neural',
+        greeting: config.greeting || `Thanks for calling ${config.businessName || 'us'}! This is Jessica, how can I help you?`,
+        systemPrompt: config.systemPrompt || null
+      };
+    }
+  }
   const callerInfo = [callerName, callerCity, callerState].filter(Boolean).join(', ');
   console.log(`📞 Incoming call from ${phoneFrom} (${callerInfo || 'unknown'}) → ${business.name} (${phoneTo})`);
 
@@ -473,7 +503,29 @@ app.post('/voice/incoming-realtime', async (req, res) => {
   const callerState = req.body.FromState || null;
 
   // Look up business config by the Twilio number that was called
-  const business = getBusinessByNumber(phoneTo);
+  // First check hardcoded businesses, then check customer DB for provisioned numbers
+  let business = getBusinessByNumber(phoneTo);
+  let customerOwner = null;
+
+  // If we got the default fallback, check if a customer owns this number
+  if (business.id === 'widescope') {
+    const cust = db.getCustomerByTwilioNumber(phoneTo);
+    if (cust && cust.ai_config) {
+      const config = JSON.parse(cust.ai_config);
+      customerOwner = cust;
+      business = {
+        id: cust.id,
+        name: config.businessName || cust.company || 'AI Always Answer',
+        phone: formatPhoneServer(cust.twilio_number),
+        email: cust.email,
+        notifyEmail: cust.email,
+        voice: 'Polly.Danielle-Neural',
+        greeting: config.greeting || `Thanks for calling ${config.businessName || 'us'}! This is Jessica, how can I help you?`,
+        systemPrompt: config.systemPrompt || null
+      };
+    }
+  }
+
   const callerInfo = [callerName, callerCity, callerState].filter(Boolean).join(', ');
   console.log(`📞 [Realtime] Incoming call from ${phoneFrom} (${callerInfo || 'unknown'}) → ${business.name} (${phoneTo})`);
 
@@ -1085,8 +1137,8 @@ app.get('/onboarding', (req, res) => {
         <div class="box">
           <div class="checkmark">✅</div>
           <h1>Welcome Aboard!</h1>
-          <p>Your ${plan || ''} subscription is now active. We'll send you an email with next steps to configure your AI receptionist.</p>
-          <a href="/dashboard" class="btn">Go to Dashboard</a>
+          <p>Your ${plan || ''} subscription is now active. Check your email for a link to set up your AI receptionist, or click below.</p>
+          <a href="/my/login" class="btn">Go to My Dashboard</a>
         </div>
       </body>
       </html>
@@ -2317,6 +2369,902 @@ app.patch('/api/demo-drop/:slug/status', (req, res) => {
   res.json({ success: true });
 });
 
+// ==================== CUSTOMER PORTAL (/my/*) ====================
+
+/**
+ * Middleware: validate customer auth token from cookie or query param
+ */
+function validateCustomerToken(req, res, next) {
+  const token = req.cookies?.aaa_token || req.query.token;
+  if (!token) {
+    return res.redirect('/my/login');
+  }
+  const customer = db.getCustomerByToken(token);
+  if (!customer) {
+    return res.redirect('/my/login');
+  }
+  req.customer = customer;
+  next();
+}
+
+
+/**
+ * GET /my/login — Magic link login page
+ */
+app.get('/my/login', (req, res) => {
+  const sent = req.query.sent;
+  const error = req.query.error;
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Sign In - AI Always Answer</title>
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f3f4f6; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        .card { background: white; padding: 48px; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); max-width: 420px; width: 100%; }
+        .logo { font-size: 22px; font-weight: 700; color: #2563eb; text-align: center; margin-bottom: 8px; }
+        .subtitle { text-align: center; color: #6b7280; margin-bottom: 32px; font-size: 15px; }
+        label { display: block; font-weight: 600; color: #374151; margin-bottom: 6px; font-size: 14px; }
+        input { width: 100%; padding: 12px 14px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 16px; margin-bottom: 20px; }
+        input:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+        button { width: 100%; padding: 14px; background: #2563eb; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; }
+        button:hover { background: #1d4ed8; }
+        button:disabled { background: #9ca3af; cursor: not-allowed; }
+        .msg { padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; }
+        .msg-success { background: #d1fae5; color: #065f46; }
+        .msg-error { background: #fee2e2; color: #991b1b; }
+        .footer { text-align: center; margin-top: 24px; color: #9ca3af; font-size: 13px; }
+        .footer a { color: #2563eb; text-decoration: none; }
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <div class="logo">AI Always Answer</div>
+        <div class="subtitle">Customer Dashboard</div>
+        ${sent ? '<div class="msg msg-success">Check your email for a login link.</div>' : ''}
+        ${error ? '<div class="msg msg-error">No account found with that email. Please check and try again.</div>' : ''}
+        <form method="POST" action="/api/my/login">
+          <label for="email">Email Address</label>
+          <input type="email" id="email" name="email" placeholder="you@company.com" required>
+          <button type="submit">Send Login Link</button>
+        </form>
+        <div class="footer">
+          <a href="/">Back to AI Always Answer</a>
+        </div>
+      </div>
+    </body>
+    </html>
+  `);
+});
+
+/**
+ * POST /api/my/login — Send magic link email
+ */
+app.post('/api/my/login', async (req, res) => {
+  const email = req.body.email;
+  if (!email) return res.redirect('/my/login?error=1');
+
+  const customer = db.getCustomerByEmail(email.trim().toLowerCase());
+  if (!customer) return res.redirect('/my/login?error=1');
+
+  // Regenerate token for security
+  const token = db.regenerateAuthToken(customer.id);
+  const baseUrl = process.env.BASE_URL || `http://localhost:${PORT}`;
+  const loginUrl = `${baseUrl}/my/auth?token=${token}`;
+
+  await emailService.sendMagicLink(email, loginUrl);
+  res.redirect('/my/login?sent=1');
+});
+
+/**
+ * GET /my/auth — Validate token from magic link, set cookie, redirect to dashboard
+ */
+app.get('/my/auth', (req, res) => {
+  const token = req.query.token;
+  if (!token) return res.redirect('/my/login');
+
+  const customer = db.getCustomerByToken(token);
+  if (!customer) return res.redirect('/my/login');
+
+  // Set httpOnly cookie so they stay logged in
+  res.setHeader('Set-Cookie', `aaa_token=${token}; HttpOnly; Path=/; Max-Age=${60 * 60 * 24 * 30}; SameSite=Lax${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`);
+
+  // Redirect to onboarding if no Twilio number yet, otherwise dashboard
+  if (!customer.twilio_number) {
+    return res.redirect('/my/onboarding');
+  }
+  res.redirect('/my/dashboard');
+});
+
+/**
+ * GET /my/logout — Clear cookie
+ */
+app.get('/my/logout', (req, res) => {
+  res.setHeader('Set-Cookie', 'aaa_token=; HttpOnly; Path=/; Max-Age=0');
+  res.redirect('/my/login');
+});
+
+/**
+ * GET /api/my/stats — Customer-specific stats
+ */
+app.get('/api/my/stats', validateCustomerToken, (req, res) => {
+  const stats = db.getCustomerStats(req.customer.id);
+  res.json(stats);
+});
+
+/**
+ * GET /api/my/calls — Customer's call log
+ */
+app.get('/api/my/calls', validateCustomerToken, (req, res) => {
+  const limit = parseInt(req.query.limit) || 50;
+  const calls = db.getCustomerCalls(req.customer.id, limit);
+  res.json(calls);
+});
+
+/**
+ * GET /api/my/leads — Customer's leads
+ */
+app.get('/api/my/leads', validateCustomerToken, (req, res) => {
+  const limit = parseInt(req.query.limit) || 50;
+  const leads = db.getCustomerLeads(req.customer.id, limit);
+  res.json(leads);
+});
+
+/**
+ * POST /api/my/settings — Update customer business settings
+ */
+app.post('/api/my/settings', validateCustomerToken, (req, res) => {
+  const { businessName, industry, phone, address, hours, website, greeting } = req.body;
+  const currentConfig = req.customer.ai_config ? JSON.parse(req.customer.ai_config) : {};
+
+  const updatedConfig = {
+    ...currentConfig,
+    businessName: businessName || currentConfig.businessName,
+    industry: industry || currentConfig.industry,
+    phone: phone || currentConfig.phone,
+    address: address || currentConfig.address,
+    hours: hours || currentConfig.hours,
+    website: website || currentConfig.website,
+    greeting: greeting || currentConfig.greeting
+  };
+
+  const customer = db.updateCustomerConfig(req.customer.id, updatedConfig);
+  res.json({ success: true, customer });
+});
+
+/**
+ * POST /api/onboarding/setup — Full onboarding: save business info, provision Twilio number, configure webhook
+ */
+app.post('/api/onboarding/setup', validateCustomerToken, async (req, res) => {
+  try {
+    const { businessName, industry, phone, address, hours, website } = req.body;
+    if (!businessName) return res.status(400).json({ error: 'Business name is required' });
+
+    const customer = req.customer;
+
+    // 1. Save business info as ai_config
+    const aiConfig = {
+      businessName,
+      industry: industry || '',
+      phone: phone || '',
+      address: address || '',
+      hours: hours || '',
+      website: website || '',
+      greeting: `Thanks for calling ${businessName}! This is Jessica, your AI receptionist. How can I help you today?`,
+      systemPrompt: generateCustomerSystemPrompt({ businessName, industry, phone, address, hours, website })
+    };
+    db.updateCustomerConfig(customer.id, aiConfig);
+
+    // 2. Provision a Twilio number (if they don't already have one)
+    let twilioNumber = customer.twilio_number;
+    if (!twilioNumber) {
+      twilioNumber = await provisionTwilioNumber(customer.id);
+      if (!twilioNumber) {
+        return res.status(500).json({ error: 'Failed to provision phone number. Please contact support.' });
+      }
+    }
+
+    res.json({
+      success: true,
+      twilioNumber,
+      businessName,
+      message: 'Your AI receptionist is ready! Forward your calls to the number above.'
+    });
+  } catch (err) {
+    console.error('Onboarding setup error:', err);
+    res.status(500).json({ error: 'Setup failed. Please try again or contact support.' });
+  }
+});
+
+/**
+ * Generate a system prompt for a customer's AI receptionist based on their business info
+ */
+function generateCustomerSystemPrompt(info) {
+  return `You are Jessica, a friendly and professional AI phone receptionist for ${info.businessName}.
+
+YOUR GOAL: Answer calls professionally, help callers with their questions, collect their information, and let them know someone from ${info.businessName} will follow up.
+
+PERSONALITY:
+- Warm, professional, and helpful
+- Speak naturally like a real receptionist
+- Be efficient — get the info you need without dragging the call out
+- Keep responses to 1-3 sentences (this is a phone call)
+- NEVER use emojis in your responses
+
+BUSINESS INFO:
+- Business: ${info.businessName}
+${info.industry ? `- Industry: ${info.industry}` : ''}
+${info.phone ? `- Business phone: ${info.phone}` : ''}
+${info.address ? `- Address: ${info.address}` : ''}
+${info.hours ? `- Hours: ${info.hours}` : ''}
+${info.website ? `- Website: ${info.website}` : ''}
+
+INFORMATION TO COLLECT:
+1. What they need help with
+2. Their name
+3. Best callback number (confirm the number they're calling from or ask for a better one)
+4. Best time to call back
+
+CLOSING:
+- Confirm the info you collected
+- "Great, I've got all your information. Someone from ${info.businessName} will be reaching out to you shortly. Is there anything else I can help with?"
+- "Thanks for calling ${info.businessName}. Have a great day!"
+
+IMPORTANT:
+- If asked about pricing, say "Pricing depends on your specific needs, but let me get your info so we can provide an accurate quote."
+- If asked if you're an AI, be honest: "I'm an AI assistant helping answer calls for ${info.businessName}. I'm getting all your info to a real person who will call you right back."
+- Keep it brief and professional.`;
+}
+
+/**
+ * Provision a Twilio phone number for a customer
+ * Tries DFW area codes (817, 682), falls back to any US number
+ */
+async function provisionTwilioNumber(customerId) {
+  try {
+    const twilioClient = require('twilio')(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+    const baseUrl = process.env.BASE_URL || 'https://aialwaysanswer.com';
+    const voiceUrl = `${baseUrl}/voice/incoming-realtime`;
+
+    // Try DFW area codes first
+    const areaCodes = ['817', '682', '214', '972'];
+    let purchased = null;
+
+    for (const areaCode of areaCodes) {
+      try {
+        const available = await twilioClient.availablePhoneNumbers('US')
+          .local.list({ areaCode, limit: 1, voiceEnabled: true });
+
+        if (available.length > 0) {
+          purchased = await twilioClient.incomingPhoneNumbers.create({
+            phoneNumber: available[0].phoneNumber,
+            voiceUrl,
+            voiceMethod: 'POST',
+            friendlyName: `Customer ${customerId}`
+          });
+          break;
+        }
+      } catch (err) {
+        console.log(`No numbers in ${areaCode}, trying next...`);
+      }
+    }
+
+    // Fallback: any US number
+    if (!purchased) {
+      const available = await twilioClient.availablePhoneNumbers('US')
+        .local.list({ limit: 1, voiceEnabled: true });
+      if (available.length > 0) {
+        purchased = await twilioClient.incomingPhoneNumbers.create({
+          phoneNumber: available[0].phoneNumber,
+          voiceUrl,
+          voiceMethod: 'POST',
+          friendlyName: `Customer ${customerId}`
+        });
+      }
+    }
+
+    if (purchased) {
+      db.updateCustomerTwilioNumber(customerId, purchased.phoneNumber);
+      console.log(`📞 Provisioned ${purchased.phoneNumber} for customer ${customerId}`);
+      return purchased.phoneNumber;
+    }
+
+    console.error('Failed to provision any Twilio number');
+    return null;
+  } catch (err) {
+    console.error('Twilio provisioning error:', err.message);
+    return null;
+  }
+}
+
+/**
+ * GET /my/onboarding — Multi-step onboarding wizard
+ */
+app.get('/my/onboarding', validateCustomerToken, (req, res) => {
+  const customer = req.customer;
+  const config = customer.ai_config ? JSON.parse(customer.ai_config) : {};
+  const hasNumber = !!customer.twilio_number;
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Set Up Your AI Receptionist - AI Always Answer</title>
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f3f4f6; color: #1f2937; }
+        .header { background: white; border-bottom: 1px solid #e5e7eb; padding: 16px 24px; }
+        .header-inner { max-width: 800px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-size: 20px; font-weight: 700; color: #2563eb; text-decoration: none; }
+        .container { max-width: 800px; margin: 0 auto; padding: 40px 20px; }
+        .progress { display: flex; gap: 8px; margin-bottom: 40px; }
+        .progress-step { flex: 1; height: 4px; border-radius: 4px; background: #e5e7eb; transition: background 0.3s; }
+        .progress-step.active { background: #2563eb; }
+        .progress-step.done { background: #10b981; }
+        .step { display: none; }
+        .step.active { display: block; }
+        .step h2 { font-size: 24px; margin-bottom: 8px; }
+        .step .desc { color: #6b7280; margin-bottom: 32px; font-size: 15px; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 14px; color: #374151; }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 12px 14px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; font-family: inherit; }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .btn { padding: 14px 28px; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; border: none; transition: all 0.2s; }
+        .btn-primary { background: #2563eb; color: white; }
+        .btn-primary:hover { background: #1d4ed8; }
+        .btn-primary:disabled { background: #93c5fd; cursor: not-allowed; }
+        .btn-outline { background: white; color: #374151; border: 1px solid #d1d5db; }
+        .btn-outline:hover { background: #f9fafb; }
+        .btn-success { background: #10b981; color: white; }
+        .btn-success:hover { background: #059669; }
+        .btn-row { display: flex; justify-content: space-between; margin-top: 32px; }
+        .number-display { background: #eff6ff; border: 2px solid #2563eb; border-radius: 12px; padding: 24px; text-align: center; margin: 24px 0; }
+        .number-display .number { font-size: 32px; font-weight: 700; color: #2563eb; letter-spacing: 1px; }
+        .number-display .label { color: #6b7280; font-size: 14px; margin-top: 4px; }
+        .instructions { background: white; border-radius: 12px; padding: 24px; margin: 24px 0; border: 1px solid #e5e7eb; }
+        .instructions h3 { margin-bottom: 12px; }
+        .instructions ol { padding-left: 20px; color: #4b5563; line-height: 2; }
+        .test-area { background: #f0fdf4; border: 2px solid #10b981; border-radius: 12px; padding: 24px; text-align: center; margin: 24px 0; }
+        .test-area p { color: #065f46; margin-bottom: 16px; }
+        .error-msg { color: #dc2626; margin-top: 8px; font-size: 14px; display: none; }
+        .spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid white; border-top-color: transparent; border-radius: 50%; animation: spin 0.6s linear infinite; margin-right: 8px; vertical-align: middle; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .footer { text-align: center; padding: 24px; color: #9ca3af; font-size: 13px; }
+        @media (max-width: 640px) { .form-row { grid-template-columns: 1fr; } }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <div class="header-inner">
+          <a href="/my/dashboard" class="logo">AI Always Answer</a>
+          <span style="color:#6b7280; font-size:14px;">${customer.email}</span>
+        </div>
+      </div>
+      <div class="container">
+        <div class="progress">
+          <div class="progress-step active" id="prog-1"></div>
+          <div class="progress-step" id="prog-2"></div>
+          <div class="progress-step" id="prog-3"></div>
+        </div>
+
+        <!-- STEP 1: Business Info -->
+        <div class="step active" id="step-1">
+          <h2>Tell us about your business</h2>
+          <p class="desc">We'll use this to train your AI receptionist so she sounds like she's worked for you for years.</p>
+          <form id="biz-form">
+            <div class="form-group">
+              <label for="businessName">Business Name *</label>
+              <input type="text" id="businessName" value="${config.businessName || customer.company || ''}" required placeholder="Acme Plumbing">
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="industry">Industry</label>
+                <select id="industry">
+                  <option value="">Select industry...</option>
+                  <option value="plumbing" ${config.industry === 'plumbing' ? 'selected' : ''}>Plumbing</option>
+                  <option value="hvac" ${config.industry === 'hvac' ? 'selected' : ''}>HVAC</option>
+                  <option value="electrical" ${config.industry === 'electrical' ? 'selected' : ''}>Electrical</option>
+                  <option value="roofing" ${config.industry === 'roofing' ? 'selected' : ''}>Roofing</option>
+                  <option value="landscaping" ${config.industry === 'landscaping' ? 'selected' : ''}>Landscaping</option>
+                  <option value="pest-control" ${config.industry === 'pest-control' ? 'selected' : ''}>Pest Control</option>
+                  <option value="cleaning" ${config.industry === 'cleaning' ? 'selected' : ''}>Cleaning</option>
+                  <option value="automotive" ${config.industry === 'automotive' ? 'selected' : ''}>Automotive</option>
+                  <option value="dental" ${config.industry === 'dental' ? 'selected' : ''}>Dental</option>
+                  <option value="medical" ${config.industry === 'medical' ? 'selected' : ''}>Medical</option>
+                  <option value="legal" ${config.industry === 'legal' ? 'selected' : ''}>Legal</option>
+                  <option value="real-estate" ${config.industry === 'real-estate' ? 'selected' : ''}>Real Estate</option>
+                  <option value="restaurant" ${config.industry === 'restaurant' ? 'selected' : ''}>Restaurant</option>
+                  <option value="salon" ${config.industry === 'salon' ? 'selected' : ''}>Salon / Spa</option>
+                  <option value="construction" ${config.industry === 'construction' ? 'selected' : ''}>Construction</option>
+                  <option value="other" ${config.industry === 'other' ? 'selected' : ''}>Other</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="phone">Business Phone</label>
+                <input type="tel" id="phone" value="${config.phone || customer.phone || ''}" placeholder="(817) 555-1234">
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="address">Business Address / Service Area</label>
+              <input type="text" id="address" value="${config.address || ''}" placeholder="Fort Worth, TX / DFW Metroplex">
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="hours">Business Hours</label>
+                <input type="text" id="hours" value="${config.hours || ''}" placeholder="Mon-Fri 8am-6pm">
+              </div>
+              <div class="form-group">
+                <label for="website">Website</label>
+                <input type="url" id="website" value="${config.website || ''}" placeholder="https://yourbusiness.com">
+              </div>
+            </div>
+            <div class="btn-row">
+              <div></div>
+              <button type="submit" class="btn btn-primary">Continue</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- STEP 2: Review & Confirm -->
+        <div class="step" id="step-2">
+          <h2>Review & Confirm</h2>
+          <p class="desc">We're setting up your dedicated AI receptionist phone number.</p>
+          <div id="setup-loading" style="text-align:center; padding: 40px;">
+            <div class="spinner" style="width:40px; height:40px; border-width:3px; border-color:#2563eb; border-top-color:transparent;"></div>
+            <p style="margin-top:16px; color:#6b7280;">Provisioning your phone number...</p>
+          </div>
+          <div id="setup-result" style="display:none;">
+            <div class="number-display">
+              <div class="label">Your AI Receptionist Number</div>
+              <div class="number" id="provisioned-number"></div>
+            </div>
+            <div class="instructions">
+              <h3>How to start using your AI receptionist:</h3>
+              <ol>
+                <li><strong>Forward your calls</strong> — Set up call forwarding on your business line to the number above</li>
+                <li><strong>On most phones:</strong> Dial *72 followed by the number, then press call</li>
+                <li><strong>Or:</strong> Contact your phone provider and ask them to set up "call forwarding on no answer" to this number</li>
+                <li><strong>That's it!</strong> Jessica will answer any calls you miss</li>
+              </ol>
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-outline" onclick="goToStep(1)">Back</button>
+              <button class="btn btn-primary" onclick="goToStep(3)">Continue</button>
+            </div>
+          </div>
+          <div id="setup-error" class="error-msg"></div>
+        </div>
+
+        <!-- STEP 3: Test Call -->
+        <div class="step" id="step-3">
+          <h2>Test your AI receptionist</h2>
+          <p class="desc">Give her a call and hear how she answers for your business.</p>
+          <div class="test-area">
+            <p>Call your new number to hear Jessica answer as <strong id="test-biz-name"></strong></p>
+            <a id="test-call-link" href="tel:" class="btn btn-success" style="font-size:18px; padding:16px 40px; text-decoration:none; display:inline-block;">Call Now</a>
+          </div>
+          <div class="instructions">
+            <h3>What to try:</h3>
+            <ol>
+              <li>Call and ask about your services</li>
+              <li>Give a fake name and number to see lead capture</li>
+              <li>Ask about hours or pricing</li>
+              <li>Check your dashboard after to see the call logged</li>
+            </ol>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-outline" onclick="goToStep(2)">Back</button>
+            <a href="/my/dashboard" class="btn btn-primary">Go to Dashboard</a>
+          </div>
+        </div>
+      </div>
+      <div class="footer">Powered by AI Always Answer</div>
+
+      <script>
+        let currentStep = ${hasNumber ? 3 : 1};
+        let provisionedNumber = '${customer.twilio_number || ''}';
+        let bizName = '${config.businessName || customer.company || ''}';
+
+        function goToStep(n) {
+          document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+          document.getElementById('step-' + n).classList.add('active');
+          document.querySelectorAll('.progress-step').forEach((s, i) => {
+            s.classList.remove('active', 'done');
+            if (i < n - 1) s.classList.add('done');
+            else if (i === n - 1) s.classList.add('active');
+          });
+          currentStep = n;
+
+          if (n === 2 && provisionedNumber) {
+            document.getElementById('setup-loading').style.display = 'none';
+            document.getElementById('setup-result').style.display = 'block';
+            document.getElementById('provisioned-number').textContent = formatPhone(provisionedNumber);
+          }
+          if (n === 3) {
+            document.getElementById('test-biz-name').textContent = bizName;
+            document.getElementById('test-call-link').href = 'tel:' + provisionedNumber;
+          }
+        }
+
+        function formatPhone(p) {
+          const d = p.replace(/\\D/g, '').replace(/^1/, '');
+          if (d.length === 10) return '(' + d.slice(0,3) + ') ' + d.slice(3,6) + '-' + d.slice(6);
+          return p;
+        }
+
+        // Step 1 form submission
+        document.getElementById('biz-form').addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const btn = e.target.querySelector('button[type="submit"]');
+          btn.disabled = true;
+          btn.innerHTML = '<span class="spinner"></span>Setting up...';
+
+          bizName = document.getElementById('businessName').value;
+
+          goToStep(2);
+          document.getElementById('setup-loading').style.display = 'block';
+          document.getElementById('setup-result').style.display = 'none';
+          document.getElementById('setup-error').style.display = 'none';
+
+          try {
+            const res = await fetch('/api/onboarding/setup', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                businessName: document.getElementById('businessName').value,
+                industry: document.getElementById('industry').value,
+                phone: document.getElementById('phone').value,
+                address: document.getElementById('address').value,
+                hours: document.getElementById('hours').value,
+                website: document.getElementById('website').value
+              })
+            });
+            const data = await res.json();
+            if (data.success) {
+              provisionedNumber = data.twilioNumber;
+              document.getElementById('setup-loading').style.display = 'none';
+              document.getElementById('setup-result').style.display = 'block';
+              document.getElementById('provisioned-number').textContent = formatPhone(data.twilioNumber);
+            } else {
+              throw new Error(data.error || 'Setup failed');
+            }
+          } catch (err) {
+            document.getElementById('setup-loading').style.display = 'none';
+            document.getElementById('setup-error').textContent = err.message;
+            document.getElementById('setup-error').style.display = 'block';
+          }
+          btn.disabled = false;
+          btn.textContent = 'Continue';
+        });
+
+        // Initialize to correct step
+        if (currentStep > 1) goToStep(currentStep);
+      </script>
+    </body>
+    </html>
+  `);
+});
+
+/**
+ * GET /my/dashboard — Customer dashboard with stats, calls, leads, settings
+ */
+app.get('/my/dashboard', validateCustomerToken, (req, res) => {
+  const customer = req.customer;
+  const config = customer.ai_config ? JSON.parse(customer.ai_config) : {};
+
+  // Redirect to onboarding if not set up yet
+  if (!customer.twilio_number) {
+    return res.redirect('/my/onboarding');
+  }
+
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Dashboard - AI Always Answer</title>
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f3f4f6; color: #1f2937; }
+
+        .header { background: white; border-bottom: 1px solid #e5e7eb; padding: 0 24px; }
+        .header-inner { max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; height: 64px; }
+        .logo { font-size: 20px; font-weight: 700; color: #2563eb; text-decoration: none; }
+        .header-right { display: flex; align-items: center; gap: 16px; }
+        .header-right .email { color: #6b7280; font-size: 14px; }
+        .header-right a { color: #6b7280; font-size: 14px; text-decoration: none; }
+        .header-right a:hover { color: #2563eb; }
+
+        .container { max-width: 1200px; margin: 0 auto; padding: 24px 20px 80px; }
+        .page-title { font-size: 24px; font-weight: 700; margin-bottom: 4px; }
+        .page-subtitle { color: #6b7280; font-size: 15px; margin-bottom: 24px; }
+
+        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+        .stat-card { background: white; padding: 24px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); border: 1px solid #e5e7eb; }
+        .stat-card .label { color: #6b7280; font-size: 13px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+        .stat-card .value { font-size: 32px; font-weight: 700; color: #1f2937; }
+        .stat-card .unit { font-size: 14px; color: #9ca3af; font-weight: 400; }
+
+        .card { background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); border: 1px solid #e5e7eb; margin-bottom: 24px; overflow: hidden; }
+        .card-header { padding: 20px 24px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center; }
+        .card-header h2 { font-size: 18px; font-weight: 600; }
+        .card-body { padding: 0; }
+        .card-body.padded { padding: 24px; }
+
+        table { width: 100%; border-collapse: collapse; }
+        th { padding: 12px 24px; text-align: left; font-size: 12px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; background: #f9fafb; border-bottom: 1px solid #e5e7eb; }
+        td { padding: 14px 24px; border-bottom: 1px solid #f3f4f6; font-size: 14px; }
+        tr:last-child td { border-bottom: none; }
+        tr:hover { background: #f9fafb; }
+        .empty-row td { text-align: center; color: #9ca3af; padding: 32px; }
+
+        .badge { padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; display: inline-block; }
+        .badge-blue { background: #dbeafe; color: #1d4ed8; }
+        .badge-green { background: #d1fae5; color: #059669; }
+        .badge-yellow { background: #fef3c7; color: #b45309; }
+        .badge-gray { background: #f3f4f6; color: #6b7280; }
+
+        audio { height: 32px; width: 200px; }
+
+        .phone-number-box { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .phone-number-box .number { font-size: 20px; font-weight: 700; color: #2563eb; }
+        .phone-number-box .label { font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; }
+
+        .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .settings-item { display: flex; flex-direction: column; }
+        .settings-item .label { font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+        .settings-item .val { font-size: 15px; color: #1f2937; }
+
+        .tabs { display: flex; border-bottom: 1px solid #e5e7eb; padding: 0 24px; background: white; }
+        .tab { padding: 12px 20px; font-size: 14px; font-weight: 500; color: #6b7280; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+        .tab.active { color: #2563eb; border-bottom-color: #2563eb; }
+        .tab:hover { color: #2563eb; }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        .footer { text-align: center; padding: 24px; color: #9ca3af; font-size: 13px; }
+        .refresh-badge { font-size: 12px; color: #9ca3af; }
+
+        @media (max-width: 768px) {
+          .stats-grid { grid-template-columns: repeat(2, 1fr); }
+          .settings-grid { grid-template-columns: 1fr; }
+          .header-right .email { display: none; }
+          audio { width: 140px; }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <div class="header-inner">
+          <a href="/my/dashboard" class="logo">AI Always Answer</a>
+          <div class="header-right">
+            <span class="email">${customer.email}</span>
+            <a href="/my/onboarding">Settings</a>
+            <a href="/my/logout">Sign Out</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="container">
+        <div class="page-title">${config.businessName || customer.company || 'Your Business'}</div>
+        <div class="page-subtitle">AI Receptionist Dashboard <span class="refresh-badge" id="refresh-badge"></span></div>
+
+        <!-- Stats -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="label">Total Calls</div>
+            <div class="value" id="stat-total-calls">--</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">Calls Today</div>
+            <div class="value" id="stat-calls-today">--</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">Avg Duration</div>
+            <div class="value" id="stat-avg-duration">--<span class="unit">s</span></div>
+          </div>
+          <div class="stat-card">
+            <div class="label">Leads Captured</div>
+            <div class="value" id="stat-total-leads">--</div>
+          </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="card">
+          <div class="tabs">
+            <div class="tab active" data-tab="calls">Call Log</div>
+            <div class="tab" data-tab="leads">Leads</div>
+            <div class="tab" data-tab="settings">Settings</div>
+          </div>
+
+          <!-- Call Log Tab -->
+          <div class="tab-content active" id="tab-calls">
+            <table>
+              <thead>
+                <tr>
+                  <th>Date / Time</th>
+                  <th>Caller</th>
+                  <th>Duration</th>
+                  <th>Outcome</th>
+                  <th>Recording</th>
+                </tr>
+              </thead>
+              <tbody id="calls-tbody">
+                <tr class="empty-row"><td colspan="5">Loading calls...</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Leads Tab -->
+          <div class="tab-content" id="tab-leads">
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Name</th>
+                  <th>Phone</th>
+                  <th>Email</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="leads-tbody">
+                <tr class="empty-row"><td colspan="5">Loading leads...</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Settings Tab -->
+          <div class="tab-content" id="tab-settings">
+            <div class="card-body padded">
+              <div class="phone-number-box">
+                <div>
+                  <div class="label">Your AI Receptionist Number</div>
+                  <div class="number">${formatPhoneServer(customer.twilio_number)}</div>
+                </div>
+                <div>
+                  <div class="label">Plan</div>
+                  <div style="font-weight:600; text-transform:capitalize;">${customer.plan || 'basic'}</div>
+                </div>
+              </div>
+              <div class="settings-grid">
+                <div class="settings-item">
+                  <div class="label">Business Name</div>
+                  <div class="val">${config.businessName || '-'}</div>
+                </div>
+                <div class="settings-item">
+                  <div class="label">Industry</div>
+                  <div class="val">${config.industry || '-'}</div>
+                </div>
+                <div class="settings-item">
+                  <div class="label">Phone</div>
+                  <div class="val">${config.phone || '-'}</div>
+                </div>
+                <div class="settings-item">
+                  <div class="label">Address / Area</div>
+                  <div class="val">${config.address || '-'}</div>
+                </div>
+                <div class="settings-item">
+                  <div class="label">Hours</div>
+                  <div class="val">${config.hours || '-'}</div>
+                </div>
+                <div class="settings-item">
+                  <div class="label">Website</div>
+                  <div class="val">${config.website || '-'}</div>
+                </div>
+              </div>
+              <div style="margin-top:24px;">
+                <a href="/my/onboarding" class="btn" style="padding:10px 20px; background:#2563eb; color:white; text-decoration:none; border-radius:8px; font-size:14px; font-weight:600;">Edit Business Info</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer">Powered by AI Always Answer</div>
+
+      <script>
+        // Tabs
+        document.querySelectorAll('.tab').forEach(tab => {
+          tab.addEventListener('click', () => {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            tab.classList.add('active');
+            document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+          });
+        });
+
+        function escapeHtml(str) {
+          if (!str) return '';
+          return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        function formatDate(d) {
+          if (!d) return '-';
+          const dt = new Date(d);
+          return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + dt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+        }
+
+        function formatDuration(s) {
+          if (!s) return '0s';
+          if (s < 60) return s + 's';
+          return Math.floor(s/60) + 'm ' + (s%60) + 's';
+        }
+
+        function outcomeBadge(o) {
+          if (!o) return '<span class="badge badge-gray">-</span>';
+          const cls = o.includes('lead') || o.includes('booked') ? 'badge-green' : o.includes('no') ? 'badge-yellow' : 'badge-blue';
+          return '<span class="badge ' + cls + '">' + escapeHtml(o) + '</span>';
+        }
+
+        async function loadData() {
+          try {
+            const [statsRes, callsRes, leadsRes] = await Promise.all([
+              fetch('/api/my/stats'),
+              fetch('/api/my/calls?limit=50'),
+              fetch('/api/my/leads?limit=50')
+            ]);
+            const stats = await statsRes.json();
+            const calls = await callsRes.json();
+            const leads = await leadsRes.json();
+
+            // Stats
+            document.getElementById('stat-total-calls').textContent = stats.totalCalls;
+            document.getElementById('stat-calls-today').textContent = stats.callsToday;
+            document.getElementById('stat-avg-duration').innerHTML = stats.avgDuration + '<span class="unit">s</span>';
+            document.getElementById('stat-total-leads').textContent = stats.totalLeads;
+
+            // Calls
+            if (calls.length === 0) {
+              document.getElementById('calls-tbody').innerHTML = '<tr class="empty-row"><td colspan="5">No calls yet. Forward your calls to start seeing data here.</td></tr>';
+            } else {
+              document.getElementById('calls-tbody').innerHTML = calls.map(function(c) {
+                const recording = c.recording_url
+                  ? '<audio controls preload="none" src="' + escapeHtml(c.recording_url) + '"></audio>'
+                  : '<span style="color:#9ca3af">-</span>';
+                return '<tr>'
+                  + '<td>' + formatDate(c.created_at) + '</td>'
+                  + '<td>' + escapeHtml(c.lead_name || c.phone_from || '-') + '</td>'
+                  + '<td>' + formatDuration(c.duration_seconds) + '</td>'
+                  + '<td>' + outcomeBadge(c.outcome) + '</td>'
+                  + '<td>' + recording + '</td>'
+                  + '</tr>';
+              }).join('');
+            }
+
+            // Leads
+            if (leads.length === 0) {
+              document.getElementById('leads-tbody').innerHTML = '<tr class="empty-row"><td colspan="5">No leads captured yet.</td></tr>';
+            } else {
+              document.getElementById('leads-tbody').innerHTML = leads.map(function(l) {
+                const statusCls = l.status === 'new' ? 'badge-blue' : l.status === 'contacted' ? 'badge-yellow' : l.status === 'converted' ? 'badge-green' : 'badge-gray';
+                return '<tr>'
+                  + '<td>' + formatDate(l.created_at) + '</td>'
+                  + '<td>' + escapeHtml(l.name || '-') + '</td>'
+                  + '<td>' + escapeHtml(l.phone) + '</td>'
+                  + '<td>' + escapeHtml(l.email || '-') + '</td>'
+                  + '<td><span class="badge ' + statusCls + '">' + escapeHtml(l.status) + '</span></td>'
+                  + '</tr>';
+              }).join('');
+            }
+
+            document.getElementById('refresh-badge').textContent = 'Updated ' + new Date().toLocaleTimeString();
+          } catch (err) {
+            console.error('Failed to load dashboard data:', err);
+          }
+        }
+
+        loadData();
+        setInterval(loadData, 30000);
+      </script>
+    </body>
+    </html>
+  `);
+});
+
 // HVAC landing page variant (clean URL)
 app.get('/hvac', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'hvac.html'));
@@ -2328,6 +3276,16 @@ app.get('*', (req, res) => {
 });
 
 // ==================== HELPER FUNCTIONS ====================
+
+/**
+ * Format phone number for display (server-side)
+ */
+function formatPhoneServer(phone) {
+  if (!phone) return '';
+  const digits = phone.replace(/\D/g, '').replace(/^1/, '');
+  if (digits.length === 10) return `(${digits.slice(0,3)}) ${digits.slice(3,6)}-${digits.slice(6)}`;
+  return phone;
+}
 
 /**
  * Extract lead info from speech using simple pattern matching

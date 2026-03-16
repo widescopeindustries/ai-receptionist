@@ -169,6 +169,9 @@ class DatabaseService {
     try { this.db.exec('ALTER TABLE calls ADD COLUMN business_id TEXT DEFAULT "widescope"'); } catch (e) { /* column exists */ }
     try { this.db.exec('ALTER TABLE calls ADD COLUMN recording_url TEXT'); } catch (e) { /* column exists */ }
 
+    // Customers migrations
+    try { this.db.exec('ALTER TABLE customers ADD COLUMN auth_token TEXT'); } catch (e) { /* column exists */ }
+
     // Create indexes
     this.db.exec(`
       CREATE INDEX IF NOT EXISTS idx_leads_phone ON leads(phone);
@@ -177,6 +180,8 @@ class DatabaseService {
       CREATE INDEX IF NOT EXISTS idx_customers_email ON customers(email);
       CREATE INDEX IF NOT EXISTS idx_customers_stripe ON customers(stripe_customer_id);
       CREATE INDEX IF NOT EXISTS idx_prospect_demos_slug ON prospect_demos(slug);
+      CREATE INDEX IF NOT EXISTS idx_customers_auth_token ON customers(auth_token);
+      CREATE INDEX IF NOT EXISTS idx_customers_twilio_number ON customers(twilio_number);
     `);
 
     console.log('✅ Database initialized');
@@ -353,10 +358,11 @@ class DatabaseService {
    */
   createCustomer(data) {
     const id = uuidv4();
+    const authToken = data.auth_token || uuidv4();
 
     this.db.prepare(`
-      INSERT INTO customers (id, email, name, company, phone, plan, stripe_customer_id, stripe_subscription_id, ai_config)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO customers (id, email, name, company, phone, plan, stripe_customer_id, stripe_subscription_id, ai_config, auth_token)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       id,
       data.email,
@@ -366,7 +372,8 @@ class DatabaseService {
       data.plan,
       data.stripe_customer_id || null,
       data.stripe_subscription_id || null,
-      data.ai_config ? JSON.stringify(data.ai_config) : null
+      data.ai_config ? JSON.stringify(data.ai_config) : null,
+      authToken
     );
 
     return this.db.prepare('SELECT * FROM customers WHERE id = ?').get(id);
@@ -402,6 +409,104 @@ class DatabaseService {
    */
   getActiveCustomers() {
     return this.db.prepare("SELECT * FROM customers WHERE status = 'active'").all();
+  }
+
+  // ==================== CUSTOMER PORTAL METHODS ====================
+
+  /**
+   * Get customer by auth token
+   */
+  getCustomerByToken(token) {
+    if (!token) return null;
+    return this.db.prepare('SELECT * FROM customers WHERE auth_token = ?').get(token);
+  }
+
+  /**
+   * Get customer by Twilio number (for call routing)
+   */
+  getCustomerByTwilioNumber(twilioNumber) {
+    if (!twilioNumber) return null;
+    const normalized = twilioNumber.replace(/[^+\d]/g, '');
+    return this.db.prepare('SELECT * FROM customers WHERE twilio_number = ?').get(normalized);
+  }
+
+  /**
+   * Get calls for a customer (by business_id = customer.id)
+   */
+  getCustomerCalls(customerId, limit = 50) {
+    return this.db.prepare(`
+      SELECT c.*, l.name as lead_name, l.phone as lead_phone
+      FROM calls c
+      LEFT JOIN leads l ON c.lead_id = l.id
+      WHERE c.business_id = ?
+      ORDER BY c.created_at DESC
+      LIMIT ?
+    `).all(customerId, limit);
+  }
+
+  /**
+   * Get leads for a customer (by business_id = customer.id)
+   */
+  getCustomerLeads(customerId, limit = 50) {
+    return this.db.prepare(`
+      SELECT * FROM leads
+      WHERE business_id = ?
+      ORDER BY created_at DESC
+      LIMIT ?
+    `).all(customerId, limit);
+  }
+
+  /**
+   * Get dashboard stats for a specific customer
+   */
+  getCustomerStats(customerId) {
+    const totalCalls = this.db.prepare(
+      'SELECT COUNT(*) as count FROM calls WHERE business_id = ?'
+    ).get(customerId).count;
+
+    const callsToday = this.db.prepare(
+      "SELECT COUNT(*) as count FROM calls WHERE business_id = ? AND date(created_at) = date('now')"
+    ).get(customerId).count;
+
+    const avgDuration = this.db.prepare(
+      'SELECT AVG(duration_seconds) as avg FROM calls WHERE business_id = ? AND duration_seconds > 0'
+    ).get(customerId).avg || 0;
+
+    const totalLeads = this.db.prepare(
+      'SELECT COUNT(*) as count FROM leads WHERE business_id = ?'
+    ).get(customerId).count;
+
+    return { totalCalls, callsToday, avgDuration: Math.round(avgDuration), totalLeads };
+  }
+
+  /**
+   * Update customer AI config and business info
+   */
+  updateCustomerConfig(customerId, config) {
+    this.db.prepare(`
+      UPDATE customers
+      SET ai_config = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(JSON.stringify(config), customerId);
+    return this.db.prepare('SELECT * FROM customers WHERE id = ?').get(customerId);
+  }
+
+  /**
+   * Update customer Twilio number
+   */
+  updateCustomerTwilioNumber(customerId, twilioNumber) {
+    this.db.prepare(`
+      UPDATE customers SET twilio_number = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
+    `).run(twilioNumber, customerId);
+  }
+
+  /**
+   * Generate a new auth token for a customer (for magic link login)
+   */
+  regenerateAuthToken(customerId) {
+    const token = uuidv4();
+    this.db.prepare('UPDATE customers SET auth_token = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(token, customerId);
+    return token;
   }
 
   // ==================== PROSPECT DEMO METHODS ====================

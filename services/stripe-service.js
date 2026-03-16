@@ -195,7 +195,15 @@ class StripeService {
     // Get Stripe customer
     const customer = await this.stripe.customers.retrieve(session.customer);
 
-    // Create customer in our database
+    // Check if customer already exists (avoid duplicate on webhook replay)
+    const existing = db.getCustomerByEmail(customerEmail);
+    if (existing) {
+      console.log(`⚠️ Customer already exists: ${customerEmail}, updating subscription`);
+      db.updateCustomerSubscription(session.customer, session.subscription, 'active');
+      return existing;
+    }
+
+    // Create customer in our database (auth_token auto-generated)
     const dbCustomer = db.createCustomer({
       email: customerEmail,
       name: customer.name || session.customer_details?.name,
@@ -205,7 +213,20 @@ class StripeService {
       stripe_subscription_id: session.subscription
     });
 
-    console.log(`✅ Customer created: ${dbCustomer.email} on ${plan} plan`);
+    console.log(`✅ Customer created: ${dbCustomer.email} on ${plan} plan (token: ${dbCustomer.auth_token})`);
+
+    // Send welcome email with dashboard link
+    try {
+      const emailService = require('./email-service');
+      if (emailService.isConfigured()) {
+        const baseUrl = process.env.BASE_URL || 'https://aialwaysanswer.com';
+        const dashboardLink = `${baseUrl}/my/auth?token=${dbCustomer.auth_token}`;
+        await emailService.sendCustomerWelcome(dbCustomer.email, dbCustomer.name || 'there', plan, dashboardLink);
+        console.log(`📧 Welcome email sent to ${dbCustomer.email}`);
+      }
+    } catch (err) {
+      console.error('Failed to send welcome email:', err.message);
+    }
 
     return dbCustomer;
   }
