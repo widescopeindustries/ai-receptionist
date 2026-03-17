@@ -129,6 +129,34 @@ const aiService = new AIService();
  * When VOICE_ENGINE=openai-realtime, redirects to the full-duplex realtime endpoint.
  */
 app.post('/voice/incoming', async (req, res) => {
+  const phoneFrom = req.body.From;
+  const callSid = req.body.CallSid;
+
+  // Log lead + check for outbound callback regardless of routing
+  try {
+    const normalizedFrom = phoneFrom?.replace(/[^\d+]/g, '');
+    const outboundMatch = db.db.prepare(
+      'SELECT id, business_name FROM outbound_calls WHERE phone = ? ORDER BY created_at DESC LIMIT 1'
+    ).get(normalizedFrom);
+    if (outboundMatch) {
+      db.db.prepare('UPDATE outbound_calls SET callback_received = 1, notes = COALESCE(notes, "") || " | callback:" || datetime("now") WHERE id = ?')
+        .run(outboundMatch.id);
+      console.log(`🔥 CALLBACK: ${outboundMatch.business_name || normalizedFrom}`);
+    }
+    db.createCall(callSid, phoneFrom, req.body.To, 'widescope');
+  } catch (err) {
+    console.error('Lead log error:', err.message);
+  }
+
+  // FORWARD MODE — ring a human first, fall back to Jessica if no answer
+  if (process.env.FORWARD_INBOUND_TO) {
+    const twiml = new VoiceResponse();
+    const dial = twiml.dial({ timeout: 20, action: '/voice/forward-fallback', method: 'POST' });
+    dial.number(process.env.FORWARD_INBOUND_TO);
+    res.type('text/xml');
+    return res.send(twiml.toString());
+  }
+
   if (process.env.VOICE_ENGINE === 'openai-realtime') {
     // Forward all Twilio params to the realtime endpoint
     const twiml = new VoiceResponse();
@@ -470,6 +498,32 @@ app.post('/voice/status', async (req, res) => {
 /**
  * POST /voice/recording — Twilio calls this when an inbound call recording is ready.
  */
+/**
+ * POST /voice/forward-fallback — Fires when FORWARD_INBOUND_TO call ends without answer.
+ * If Elise didn't pick up, route to Jessica (openai-realtime).
+ */
+app.post('/voice/forward-fallback', (req, res) => {
+  const dialStatus = req.body.DialCallStatus;
+  const twiml = new VoiceResponse();
+
+  if (dialStatus === 'completed') {
+    // Elise answered and finished — just end
+    twiml.hangup();
+  } else {
+    // No answer / busy / failed — fall back to Jessica
+    console.log(`📲 Forward unanswered (${dialStatus}), falling back to Jessica`);
+    if (process.env.VOICE_ENGINE === 'openai-realtime') {
+      twiml.redirect({ method: 'POST' }, '/voice/incoming-realtime');
+    } else {
+      twiml.say({ voice: 'Polly.Joanna-Neural' }, "One moment please.");
+      twiml.redirect({ method: 'POST' }, '/voice/incoming');
+    }
+  }
+
+  res.type('text/xml');
+  res.send(twiml.toString());
+});
+
 app.post('/voice/recording', (req, res) => {
   const callSid = req.query.sid || req.body.CallSid;
   const recordingUrl = req.body.RecordingUrl;
