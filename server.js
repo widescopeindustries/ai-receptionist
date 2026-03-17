@@ -166,8 +166,6 @@ app.post('/voice/incoming', async (req, res) => {
   }
 
   const twiml = new VoiceResponse();
-  const callSid = req.body.CallSid;
-  const phoneFrom = req.body.From;
   const phoneTo = req.body.To;
   const callerName = req.body.CallerName || null;
   const callerCity = req.body.FromCity || null;
