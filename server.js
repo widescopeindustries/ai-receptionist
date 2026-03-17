@@ -976,6 +976,9 @@ app.patch('/api/leads/:id', (req, res) => {
   if (status) {
     db.updateLeadStatus(id, status);
   }
+  if (notes !== undefined) {
+    db.updateLeadNotes(id, notes);
+  }
 
   res.json({ success: true });
 });

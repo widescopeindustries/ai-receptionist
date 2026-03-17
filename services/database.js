@@ -298,6 +298,10 @@ class DatabaseService {
     this.db.prepare('UPDATE leads SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(status, leadId);
   }
 
+  updateLeadNotes(leadId, notes) {
+    this.db.prepare('UPDATE leads SET notes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(notes, leadId);
+  }
+
   // ==================== CALL METHODS ====================
 
   /**
