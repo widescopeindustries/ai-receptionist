@@ -27,7 +27,7 @@
         theme: {
           extend: {
             colors: {
-              primary: "#2563eb",
+              primary: "#16a34a",
               "background-light": "#ffffff",
               "background-dark": "#0f172a",
               "surface-dark": "#1e293b",
@@ -64,144 +64,46 @@
         display: none;
       }
 
-      /* Hero phone mockup */
-      .phone-scene {
-        perspective: 1200px;
-        position: relative;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        min-height: 500px;
-        padding: 20px 0;
-      }
-
-      .phone-mockup {
-        transform: rotateY(-16deg) rotateX(5deg);
-        transform-style: preserve-3d;
-        position: relative;
-        z-index: 2;
-        filter: drop-shadow(0 30px 60px rgba(0,0,0,0.45));
-      }
-
-      .phone-frame {
-        width: 260px;
-        height: 530px;
-        background: linear-gradient(145deg, #2a2a3e, #111122);
-        border-radius: 42px;
-        padding: 10px;
-        border: 1px solid rgba(255,255,255,0.1);
-        box-shadow: inset 0 1px 0 rgba(255,255,255,0.15), inset 0 -1px 0 rgba(0,0,0,0.3);
-      }
-
-      .phone-screen {
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(180deg, #0c1929 0%, #132035 50%, #0f172a 100%);
-        border-radius: 34px;
-        overflow: hidden;
-        display: flex;
-        flex-direction: column;
-      }
-
-      .phone-notch {
-        width: 100px;
-        height: 28px;
-        background: #111122;
-        border-radius: 0 0 18px 18px;
-        margin: 0 auto;
-      }
-
-      .hero-floating-card {
-        position: absolute;
-        background: rgba(15, 23, 42, 0.92);
-        backdrop-filter: blur(16px);
-        -webkit-backdrop-filter: blur(16px);
-        border-radius: 14px;
-        padding: 14px 18px;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.06);
-        z-index: 3;
-        white-space: nowrap;
-      }
-
-      .hero-floating-card.card-1 {
-        top: 6%;
-        right: 2%;
-        border-left: 3px solid #22c55e;
-        animation: heroFloat 6s ease-in-out infinite;
-      }
-
-      .hero-floating-card.card-2 {
-        top: 42%;
-        right: -2%;
-        border-left: 3px solid #3b82f6;
-        animation: heroFloat 6s ease-in-out infinite 2s;
-      }
-
-      .hero-floating-card.card-3 {
-        bottom: 12%;
-        right: 6%;
-        border-left: 3px solid #f59e0b;
-        animation: heroFloat 6s ease-in-out infinite 4s;
-      }
-
-      @keyframes heroFloat {
-        0%, 100% { transform: translateY(0); }
-        50% { transform: translateY(-10px); }
-      }
-
-      @keyframes pulseAccept {
-        0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
-        50% { box-shadow: 0 0 0 14px rgba(34, 197, 94, 0); }
-      }
-
-      @media (max-width: 1023px) {
-        .phone-scene { min-height: 420px; }
-        .phone-frame { width: 230px; height: 470px; }
-        .hero-floating-card { padding: 10px 14px; }
-        .hero-floating-card .fc-title { font-size: 13px; }
-        .hero-floating-card .fc-sub { font-size: 11px; }
-      }
-
-      @media (max-width: 640px) {
-        .phone-scene { min-height: 380px; padding: 10px 0; }
-        .phone-frame { width: 210px; height: 430px; border-radius: 36px; }
-        .phone-screen { border-radius: 28px; }
-        .phone-notch { width: 80px; height: 22px; }
-        .hero-floating-card.card-2 { right: 2%; }
+      /* Call log panel */
+      .call-log-panel {
+        background: white;
       }
     </style>
 </head>
 <body class="bg-background-light text-slate-900 font-sans transition-colors duration-300 dark:bg-background-dark dark:text-slate-100">
-<header class="mesh-bg relative overflow-hidden px-4 pb-24 pt-8 text-white">
-    <div class="absolute left-0 top-0 h-full w-full opacity-40">
-        <div class="absolute left-[-10%] top-[-12%] h-72 w-72 rounded-full bg-primary blur-[120px]"></div>
-        <div class="absolute bottom-[-14%] right-[-6%] h-80 w-80 rounded-full bg-accent-neon blur-[140px]"></div>
-    </div>
-    <svg class="absolute inset-0 h-full w-full pointer-events-none" style="opacity:0.035;" preserveAspectRatio="none" viewBox="0 0 1440 900" xmlns="http://www.w3.org/2000/svg">
-        <path d="M0 150C360 210 720 90 1080 150S1440 210 1440 150" fill="none" stroke="white" stroke-width="1.5"/>
-        <path d="M0 280C360 340 720 220 1080 280S1440 340 1440 280" fill="none" stroke="white" stroke-width="1"/>
-        <path d="M0 410C360 470 720 350 1080 410S1440 470 1440 410" fill="none" stroke="white" stroke-width="1.5"/>
-        <path d="M0 540C360 600 720 480 1080 540S1440 600 1440 540" fill="none" stroke="white" stroke-width="0.8"/>
-        <path d="M0 670C360 730 720 610 1080 670S1440 730 1440 670" fill="none" stroke="white" stroke-width="1"/>
+<header class="relative overflow-hidden bg-[#f8fafc] px-4 pb-24 pt-8">
+    <!-- Subtle topographic wave pattern -->
+    <svg class="absolute inset-0 h-full w-full pointer-events-none" style="opacity:0.06;" preserveAspectRatio="none" viewBox="0 0 1440 900" xmlns="http://www.w3.org/2000/svg">
+        <path d="M0 80C180 110 360 50 540 80S900 110 1080 80S1350 50 1440 80" fill="none" stroke="#94a3b8" stroke-width="1"/>
+        <path d="M0 160C240 200 480 120 720 160S1200 200 1440 160" fill="none" stroke="#94a3b8" stroke-width="0.8"/>
+        <path d="M0 250C300 280 600 220 900 250S1350 280 1440 250" fill="none" stroke="#94a3b8" stroke-width="1"/>
+        <path d="M0 340C200 380 500 300 800 340S1300 380 1440 340" fill="none" stroke="#94a3b8" stroke-width="0.7"/>
+        <path d="M0 430C360 460 720 400 1080 430S1440 460 1440 430" fill="none" stroke="#94a3b8" stroke-width="1"/>
+        <path d="M0 520C280 560 560 480 840 520S1400 560 1440 520" fill="none" stroke="#94a3b8" stroke-width="0.8"/>
+        <path d="M0 610C320 640 640 580 960 610S1440 640 1440 610" fill="none" stroke="#94a3b8" stroke-width="0.6"/>
+        <path d="M0 700C240 730 480 670 720 700S1200 730 1440 700" fill="none" stroke="#94a3b8" stroke-width="0.8"/>
+        <path d="M0 790C360 820 720 760 1080 790S1440 820 1440 790" fill="none" stroke="#94a3b8" stroke-width="0.5"/>
     </svg>
+
+    <!-- Nav -->
     <nav class="relative z-10 mx-auto flex max-w-7xl items-center justify-between py-4">
         <div class="flex items-center space-x-3">
-            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-primary shadow-lg shadow-blue-500/20">
+            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-primary shadow-lg shadow-green-500/20">
                 <span class="material-symbols-outlined text-xl text-white">smart_toy</span>
             </div>
             <div>
-                <span class="block font-display text-xl font-bold tracking-tight">AI Always Answer</span>
-                <span class="block text-xs font-medium uppercase tracking-[0.24em] text-slate-400">AI Receptionist</span>
+                <span class="block font-display text-xl font-bold tracking-tight text-slate-900">AI Always Answer</span>
+                <span class="block text-xs font-medium uppercase tracking-[0.24em] text-slate-500">AI Receptionist</span>
             </div>
         </div>
-        <div class="hidden items-center gap-8 text-sm font-medium text-slate-300 md:flex">
-            <a class="transition-colors hover:text-white" href="#fit">Who It Fits</a>
-            <a class="transition-colors hover:text-white" href="#how-it-works">How It Works</a>
-            <a class="transition-colors hover:text-white" href="#faq">FAQ</a>
-            <a class="transition-colors hover:text-white" href="/hvac.html">HVAC</a>
+        <div class="hidden items-center gap-8 text-sm font-medium text-slate-600 md:flex">
+            <a class="transition-colors hover:text-slate-900" href="#fit">Who It Fits</a>
+            <a class="transition-colors hover:text-slate-900" href="#how-it-works">How It Works</a>
+            <a class="transition-colors hover:text-slate-900" href="#faq">FAQ</a>
+            <a class="transition-colors hover:text-slate-900" href="/hvac.html">HVAC</a>
         </div>
         <a
-          class="rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-ink transition-all hover:scale-[1.03]"
+          class="rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white transition-all hover:scale-[1.03] hover:bg-green-700"
           href="#demo"
           data-cta="custom_demo"
           data-location="nav"
@@ -210,20 +112,22 @@
         </a>
     </nav>
 
-    <div class="relative z-10 mx-auto mt-12 grid max-w-7xl gap-12 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+    <!-- Hero content -->
+    <div class="relative z-10 mx-auto mt-16 grid max-w-7xl gap-12 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+        <!-- Left side -->
         <div>
-            <div class="mb-6 inline-flex items-center rounded-full border border-blue-400/30 bg-blue-500/10 px-4 py-1.5 text-sm font-semibold text-accent-neon">
-                Built for service businesses where missed calls mean lost jobs
+            <div class="mb-6 inline-flex items-center rounded-full border border-green-200 bg-green-50 px-4 py-1.5 text-sm font-semibold text-green-700">
+                AI Receptionist for Service Businesses
             </div>
-            <h1 class="max-w-4xl font-display text-5xl font-extrabold leading-[1.02] tracking-tight md:text-7xl">
-                Turn missed calls into booked jobs.
+            <h1 class="max-w-xl font-display text-5xl font-extrabold leading-[1.08] tracking-tight text-slate-900 md:text-6xl lg:text-7xl">
+                Never miss another&nbsp;call.
             </h1>
-            <p class="mt-6 max-w-2xl text-lg leading-relaxed text-slate-300 md:text-2xl">
-                Your customers call. Jessica answers — as YOUR business, knowing YOUR services, 24/7. No voicemail. No missed jobs. No monthly contracts.
+            <p class="mt-6 max-w-xl text-lg leading-relaxed text-slate-600 md:text-xl">
+                Jessica answers your phone 24/7 — as YOUR business, knowing your services, your area, your hours. No voicemail. No missed jobs.
             </p>
             <div class="mt-10 flex flex-col gap-4 sm:flex-row">
                 <a
-                  class="inline-flex items-center justify-center rounded-2xl bg-primary px-8 py-4 text-lg font-bold text-white shadow-lg shadow-blue-500/25 transition-all hover:-translate-y-0.5 hover:bg-blue-700"
+                  class="inline-flex items-center justify-center rounded-2xl bg-primary px-8 py-4 text-lg font-bold text-white shadow-lg shadow-green-500/25 transition-all hover:-translate-y-0.5 hover:bg-green-700"
                   href="#demo"
                   data-cta="custom_demo"
                   data-location="hero"
@@ -231,124 +135,72 @@
                     Get My Custom Demo
                 </a>
                 <a
-                  class="inline-flex items-center justify-center rounded-2xl border border-slate-600 bg-white/5 px-8 py-4 text-lg font-semibold text-white transition-colors hover:border-slate-400 hover:bg-white/10"
+                  class="inline-flex items-center justify-center gap-2 rounded-2xl border-2 border-slate-300 px-8 py-4 text-lg font-semibold text-slate-700 transition-colors hover:border-slate-400 hover:bg-slate-50"
                   href="tel:8175338424"
                   data-demo-call="hero"
                 >
-                    Call the Live Demo
+                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                    Call Live Demo: (817) 533-8424
                 </a>
             </div>
-            <div class="mt-8 flex flex-wrap gap-3 text-sm font-medium text-slate-300">
-                <span class="rounded-full border border-slate-700 bg-slate-900/50 px-4 py-2">Keep your current number</span>
-                <span class="rounded-full border border-slate-700 bg-slate-900/50 px-4 py-2">Custom demo in 24 hours</span>
-                <span class="rounded-full border border-slate-700 bg-slate-900/50 px-4 py-2">$99/mo base plan</span>
+            <div class="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm font-medium text-slate-600">
+                <span class="flex items-center gap-1.5"><span class="font-bold text-green-600">&#10003;</span> Keep your current number</span>
+                <span class="flex items-center gap-1.5"><span class="font-bold text-green-600">&#10003;</span> Custom setup in 24 hours</span>
+                <span class="flex items-center gap-1.5"><span class="font-bold text-green-600">&#10003;</span> Cancel anytime — no contracts</span>
             </div>
         </div>
 
-        <div class="phone-scene">
-            <!-- Floating notification cards -->
-            <div class="hero-floating-card card-1">
-                <div class="fc-title" style="font-size:14px;font-weight:700;color:#4ade80;">✓ Lead Captured</div>
-                <div class="fc-sub" style="font-size:12px;color:#94a3b8;margin-top:3px;">Mike Johnson — Emergency pipe repair</div>
+        <!-- Right side: call log panel -->
+        <div class="call-log-panel rounded-2xl border border-slate-200 bg-white p-6 shadow-lg">
+            <div class="mb-4 flex items-center gap-2 border-b border-slate-100 pb-4">
+                <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-green-50">
+                    <span class="material-symbols-outlined text-lg text-green-600">call_log</span>
+                </div>
+                <span class="text-sm font-semibold text-slate-800">Today's Call Activity — Mike's Plumbing</span>
             </div>
-            <div class="hero-floating-card card-2">
-                <div class="fc-title" style="font-size:14px;font-weight:700;color:#60a5fa;">📅 Appointment Booked</div>
-                <div class="fc-sub" style="font-size:12px;color:#94a3b8;margin-top:3px;">Tomorrow 9:00 AM</div>
-            </div>
-            <div class="hero-floating-card card-3">
-                <div class="fc-title" style="font-size:14px;font-weight:700;color:#fbbf24;">⭐ Review Requested</div>
-                <div class="fc-sub" style="font-size:12px;color:#94a3b8;margin-top:3px;">SMS sent automatically</div>
-            </div>
-            <!-- 3D Phone Mockup -->
-            <div class="phone-mockup">
-                <div class="phone-frame">
-                    <div class="phone-screen">
-                        <div class="phone-notch"></div>
-                        <!-- Status bar -->
-                        <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 22px 0;font-size:11px;color:rgba(255,255,255,0.35);">
-                            <span style="font-weight:600;">9:41</span>
-                            <div style="display:flex;gap:5px;align-items:center;">
-                                <svg width="15" height="10" viewBox="0 0 15 10" fill="none"><rect x="0" y="6" width="3" height="4" rx="0.5" fill="rgba(255,255,255,0.35)"/><rect x="4" y="4" width="3" height="6" rx="0.5" fill="rgba(255,255,255,0.35)"/><rect x="8" y="2" width="3" height="8" rx="0.5" fill="rgba(255,255,255,0.35)"/><rect x="12" y="0" width="3" height="10" rx="0.5" fill="rgba(255,255,255,0.35)"/></svg>
-                                <div style="width:20px;height:9px;border:1.5px solid rgba(255,255,255,0.3);border-radius:3px;position:relative;"><div style="position:absolute;top:1.5px;left:1.5px;bottom:1.5px;width:65%;background:#4ade80;border-radius:1px;"></div><div style="position:absolute;right:-4px;top:2px;width:2px;height:5px;background:rgba(255,255,255,0.2);border-radius:0 1px 1px 0;"></div></div>
-                            </div>
+            <div class="space-y-4">
+                <div class="flex items-start gap-3">
+                    <div class="mt-1.5 h-2.5 w-2.5 flex-shrink-0 rounded-full bg-green-500"></div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-baseline justify-between gap-2">
+                            <span class="text-sm font-semibold text-slate-800">Incoming Call — Mike's Plumbing</span>
+                            <span class="flex-shrink-0 text-xs text-slate-400">2:34 PM</span>
                         </div>
-                        <!-- Incoming call content -->
-                        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 24px;">
-                            <div style="font-size:11px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:3px;font-weight:600;">Incoming Call</div>
-                            <div style="margin-top:22px;width:76px;height:76px;border-radius:50%;background:linear-gradient(135deg,#1e40af,#3b82f6);display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(37,99,235,0.3);">
-                                <span style="font-size:30px;">🔧</span>
-                            </div>
-                            <div style="margin-top:16px;font-size:19px;font-weight:800;color:white;font-family:'Plus Jakarta Sans',sans-serif;letter-spacing:-0.3px;">Mike's Plumbing</div>
-                            <div style="margin-top:5px;font-size:13px;color:rgba(255,255,255,0.4);font-weight:500;">(817) 555-0142</div>
+                        <span class="text-xs font-medium text-green-600">Answered in &lt;1s</span>
+                    </div>
+                </div>
+                <div class="flex items-start gap-3">
+                    <div class="mt-1.5 h-2.5 w-2.5 flex-shrink-0 rounded-full bg-green-500"></div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-baseline justify-between gap-2">
+                            <span class="text-sm font-semibold text-slate-800">Lead Captured — Sarah Johnson</span>
+                            <span class="flex-shrink-0 text-xs text-slate-400">2:37 PM</span>
                         </div>
-                        <!-- Call buttons -->
-                        <div style="padding:0 44px 32px;display:flex;justify-content:space-between;align-items:center;">
-                            <div style="text-align:center;">
-                                <div style="width:54px;height:54px;border-radius:50%;background:#ef4444;display:flex;align-items:center;justify-content:center;">
-                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                                </div>
-                                <div style="margin-top:6px;font-size:10px;color:rgba(255,255,255,0.3);font-weight:500;">Decline</div>
-                            </div>
-                            <div style="text-align:center;">
-                                <div style="width:54px;height:54px;border-radius:50%;background:#22c55e;display:flex;align-items:center;justify-content:center;animation:pulseAccept 2s ease-in-out infinite;">
-                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-                                </div>
-                                <div style="margin-top:6px;font-size:10px;color:rgba(255,255,255,0.3);font-weight:500;">Accept</div>
-                            </div>
+                        <span class="text-xs text-slate-500">Emergency pipe repair</span>
+                    </div>
+                </div>
+                <div class="flex items-start gap-3">
+                    <div class="mt-1.5 h-2.5 w-2.5 flex-shrink-0 rounded-full bg-green-500"></div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-baseline justify-between gap-2">
+                            <span class="text-sm font-semibold text-slate-800">Appointment Booked</span>
+                            <span class="flex-shrink-0 text-xs text-slate-400">2:38 PM</span>
                         </div>
+                        <span class="text-xs text-slate-500">Tomorrow 9:00 AM</span>
+                    </div>
+                </div>
+                <div class="flex items-start gap-3">
+                    <div class="mt-1.5 h-2.5 w-2.5 flex-shrink-0 rounded-full bg-green-500"></div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-baseline justify-between gap-2">
+                            <span class="text-sm font-semibold text-slate-800">Review Request Sent</span>
+                            <span class="flex-shrink-0 text-xs text-slate-400">2:39 PM</span>
+                        </div>
+                        <span class="text-xs text-slate-500">SMS to Sarah</span>
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
-
-    <!-- Free Custom Demo card (relocated below hero grid) -->
-    <div class="relative z-10 mx-auto mt-16 max-w-4xl space-y-5 px-4">
-        <div class="glass-card rounded-[2rem] p-8 shadow-2xl shadow-slate-950/30">
-            <div class="mb-4 inline-flex items-center rounded-full bg-emerald-400/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.24em] text-emerald-300">
-                Free Custom Demo
-            </div>
-            <h2 class="max-w-md font-display text-3xl font-extrabold tracking-tight">
-                See exactly how your calls would be handled before you switch anything.
-            </h2>
-            <p class="mt-4 text-base leading-relaxed text-slate-300">
-                We build a custom demo around your business so you can hear the voice, call flow, and booking experience before forwarding real calls.
-            </p>
-            <div class="mt-6 grid gap-3 text-sm text-slate-200 md:grid-cols-3">
-                <div class="rounded-2xl border border-slate-700/80 bg-slate-950/30 p-4">
-                    <div class="font-semibold text-white">Your business context</div>
-                    <div class="mt-1 text-slate-400">Services, service area, hours, pricing rules, and common objections.</div>
-                </div>
-                <div class="rounded-2xl border border-slate-700/80 bg-slate-950/30 p-4">
-                    <div class="font-semibold text-white">Your buyer path</div>
-                    <div class="mt-1 text-slate-400">Overflow calls, after-hours coverage, or full-time appointment booking.</div>
-                </div>
-                <div class="rounded-2xl border border-slate-700/80 bg-slate-950/30 p-4">
-                    <div class="font-semibold text-white">Your low-risk rollout</div>
-                    <div class="mt-1 text-slate-400">Start with overflow or after-hours only if you want to prove it first.</div>
-                </div>
-            </div>
-            <div class="mt-6 rounded-2xl border border-yellow-400/20 bg-yellow-400/10 p-5">
-                <div class="text-xs font-bold uppercase tracking-[0.22em] text-yellow-200">Hear it now</div>
-                <a class="mt-2 block font-display text-4xl font-extrabold tracking-tight text-yellow-300" href="tel:8175338424" data-demo-call="hero-card">
-                    (817) 533-8424
-                </a>
-                <p class="mt-2 text-sm text-yellow-100/80">Live phone demo for buyers who want proof before filling out the form.</p>
-            </div>
-        </div>
-        <div class="grid grid-cols-3 gap-4">
-            <div class="rounded-2xl border border-slate-700/80 bg-slate-950/35 p-4 text-center">
-                <div class="font-display text-3xl font-extrabold text-white">24/7</div>
-                <div class="mt-1 text-xs uppercase tracking-[0.2em] text-slate-400">Never Closed</div>
-            </div>
-            <div class="rounded-2xl border border-slate-700/80 bg-slate-950/35 p-4 text-center">
-                <div class="font-display text-3xl font-extrabold text-white">&lt;1s</div>
-                <div class="mt-1 text-xs uppercase tracking-[0.2em] text-slate-400">Answer Speed</div>
-            </div>
-            <div class="rounded-2xl border border-slate-700/80 bg-slate-950/35 p-4 text-center">
-                <div class="font-display text-3xl font-extrabold text-white">$99/mo</div>
-                <div class="mt-1 text-xs uppercase tracking-[0.2em] text-slate-400">All Included</div>
-            </div>
+            <p class="mt-5 border-t border-slate-100 pt-4 text-center text-xs text-slate-400">This is what happens every time someone calls your business.</p>
         </div>
     </div>
 </header>
