@@ -253,41 +253,85 @@ app.post('/voice/incoming', async (req, res) => {
   // If this is a callback from outbound, personalize Jessica's greeting and system prompt
   if (outboundCallback && outboundCallback.business_name) {
     const bizName = outboundCallback.business_name;
-    const callbackGreeting = `Thank you for calling ${bizName}! This is Jessica, how can I help you today?`;
+    const eliseMissed = req.query.elise_missed === '1';
 
-    // Look up scraped business data for deep context
-    let bizContext = '';
-    try {
-      const normalizedPhone = phoneFrom.replace(/[^\d+]/g, '');
-      const prospectDemo = db.db.prepare(
-        'SELECT business_type, services, service_area, hours, tagline, has_emergency, location, faqs FROM prospect_demos WHERE phone = ? ORDER BY created_at DESC LIMIT 1'
-      ).get(normalizedPhone) || db.db.prepare(
-        'SELECT business_type, services, service_area, hours, tagline, has_emergency, location, faqs FROM prospect_demos WHERE business_name = ? ORDER BY created_at DESC LIMIT 1'
-      ).get(bizName);
+    if (eliseMissed) {
+      // Elise didn't answer — Jessica picks up as herself, not as their business
+      const callbackGreeting = `Hey, thanks for calling back! I'm Jessica with AI Always Answer — you got a voicemail from us about never missing a call again. I can tell you more about that, or connect you with someone on our team. What would be most helpful?`;
+      console.log(`🔔 [Fallback] Callback from ${bizName} — using honest AI Always Answer intro`);
 
-      if (prospectDemo) {
-        const parts = [];
-        if (prospectDemo.business_type) parts.push(`Business type: ${prospectDemo.business_type}`);
-        if (prospectDemo.services) parts.push(`Services they offer: ${prospectDemo.services}`);
-        if (prospectDemo.service_area) parts.push(`Service area: ${prospectDemo.service_area}`);
-        if (prospectDemo.hours) parts.push(`Hours: ${prospectDemo.hours}`);
-        if (prospectDemo.tagline) parts.push(`Their tagline: ${prospectDemo.tagline}`);
-        if (prospectDemo.has_emergency === 'true') parts.push(`They handle emergency calls`);
-        if (prospectDemo.location) parts.push(`Location: ${prospectDemo.location}`);
-        if (prospectDemo.faqs) parts.push(`Common FAQs: ${prospectDemo.faqs}`);
-        if (parts.length > 0) {
-          bizContext = `\n\nSCRAPED BUSINESS INTEL (from their website — use this to sound knowledgeable):\n${parts.join('\n')}`;
-          console.log(`🔍 Loaded scraped context for ${bizName}: ${parts.length} data points`);
+      conversationManager.businessConfig = {
+        ...business,
+        greeting: callbackGreeting,
+        systemPrompt: `You are Jessica, an AI sales rep from AI Always Answer. A prospect (${bizName}) called back after receiving your voicemail — they tried to reach our human team but no one was available, so you stepped in.
+
+YOUR ROLE: Be warm, honest, and helpful. You are NOT pretending to be their receptionist — you are Jessica from AI Always Answer.
+
+YOUR GOAL: Qualify their interest, answer questions, and guide them toward signing up at $99/month.
+
+KEY FACTS:
+- AI Always Answer is $99/month — an AI phone receptionist that answers 24/7
+- 85% of callers don't leave voicemails — they call a competitor instead
+- Pays for itself with just one captured job
+- No contracts, cancel anytime
+- Checkout link: https://aialwaysanswer.com/checkout?plan=basic
+
+WHAT TO DO:
+1. Ask what business they're in and what made them curious enough to call back
+2. Get their name: "What's your name, by the way?" — always capture it, ask to repeat/spell if unclear
+3. Explain the service naturally: "Basically I answer every call for your business — 24/7, even at 2am, sound like a real person, capture leads and book appointments"
+4. If they're interested, share the checkout link or offer to have a human from our team follow up
+5. Capture their best callback number if they want a human follow-up
+
+PRICING: $99/month, no contracts. If they push back on price, remind them one missed job typically costs more than a full year of the service.
+
+STAY HONEST: You are Jessica the AI. Don't claim to be human if asked directly. Keep it light — "Yep, I'm the AI you heard about. Pretty convincing, right? Imagine your customers getting this same experience."
+
+CAPTURE (in order of importance):
+- Their name
+- Their business name (confirm: "This is ${bizName}, right?")
+- Interest level (ready to sign up / wants more info / just curious)
+- Best callback number if they want a human to follow up${callerContextStr}`
+      };
+
+      speakText(twiml, callbackGreeting, business.voice);
+    } else {
+      // No Elise — do the double-whammy demo (original behavior)
+      const callbackGreeting = `Thank you for calling ${bizName}! This is Jessica, how can I help you today?`;
+
+      // Look up scraped business data for deep context
+      let bizContext = '';
+      try {
+        const normalizedPhone = phoneFrom.replace(/[^\d+]/g, '');
+        const prospectDemo = db.db.prepare(
+          'SELECT business_type, services, service_area, hours, tagline, has_emergency, location, faqs FROM prospect_demos WHERE phone = ? ORDER BY created_at DESC LIMIT 1'
+        ).get(normalizedPhone) || db.db.prepare(
+          'SELECT business_type, services, service_area, hours, tagline, has_emergency, location, faqs FROM prospect_demos WHERE business_name = ? ORDER BY created_at DESC LIMIT 1'
+        ).get(bizName);
+
+        if (prospectDemo) {
+          const parts = [];
+          if (prospectDemo.business_type) parts.push(`Business type: ${prospectDemo.business_type}`);
+          if (prospectDemo.services) parts.push(`Services they offer: ${prospectDemo.services}`);
+          if (prospectDemo.service_area) parts.push(`Service area: ${prospectDemo.service_area}`);
+          if (prospectDemo.hours) parts.push(`Hours: ${prospectDemo.hours}`);
+          if (prospectDemo.tagline) parts.push(`Their tagline: ${prospectDemo.tagline}`);
+          if (prospectDemo.has_emergency === 'true') parts.push(`They handle emergency calls`);
+          if (prospectDemo.location) parts.push(`Location: ${prospectDemo.location}`);
+          if (prospectDemo.faqs) parts.push(`Common FAQs: ${prospectDemo.faqs}`);
+          if (parts.length > 0) {
+            bizContext = `\n\nSCRAPED BUSINESS INTEL (from their website — use this to sound knowledgeable):\n${parts.join('\n')}`;
+            console.log(`🔍 Loaded scraped context for ${bizName}: ${parts.length} data points`);
+          }
         }
+      } catch (err) {
+        console.error('Prospect demo lookup error:', err.message);
       }
-    } catch (err) {
-      console.error('Prospect demo lookup error:', err.message);
-    }
 
-    conversationManager.businessConfig = {
-      ...business,
-      greeting: callbackGreeting,
-      systemPrompt: `You are Jessica, an AI receptionist from AI Always Answer. You left a voicemail for ${bizName} and they are calling you back.
+      conversationManager.businessConfig = {
+        ...business,
+        greeting: callbackGreeting,
+        systemPrompt: `You are Jessica, an AI receptionist from AI Always Answer. You left a voicemail for ${bizName} and they are calling you back.
 
 IMPORTANT — THE DOUBLE WHAMMY STRATEGY:
 You answered as "${bizName}'s" receptionist on purpose. This IS their personalized demo.
@@ -306,9 +350,10 @@ KEY FACTS: 85% don't leave voicemails, 62% call competitor, $99/month, 24/7.
 CLOSING: "99 bucks a month. I already know your business inside and out. Want me to set you up right now?"
 
 Remember: they called YOU back, you answered as their business, AND you knew their services. Close it.${callerContextStr}`
-    };
-    
-    speakText(twiml, callbackGreeting, business.voice);
+      };
+
+      speakText(twiml, callbackGreeting, business.voice);
+    }
   } else {
     // Normal greeting for non-callback calls
     // Inject caller context into the business system prompt if available
@@ -509,12 +554,13 @@ app.post('/voice/forward-fallback', (req, res) => {
     twiml.hangup();
   } else {
     // No answer / busy / failed — fall back to Jessica
+    // Pass elise_missed=1 so Jessica knows NOT to do the double-whammy demo on callbacks
     console.log(`📲 Forward unanswered (${dialStatus}), falling back to Jessica`);
     if (process.env.VOICE_ENGINE === 'openai-realtime') {
-      twiml.redirect({ method: 'POST' }, '/voice/incoming-realtime');
+      twiml.redirect({ method: 'POST' }, '/voice/incoming-realtime?elise_missed=1');
     } else {
       twiml.say({ voice: 'Polly.Joanna-Neural' }, "One moment please.");
-      twiml.redirect({ method: 'POST' }, '/voice/incoming');
+      twiml.redirect({ method: 'POST' }, '/voice/incoming?elise_missed=1');
     }
   }
 
@@ -630,43 +676,83 @@ app.post('/voice/incoming-realtime', async (req, res) => {
     ? `\n\nCALLER INFO (from caller ID — use naturally, don't be creepy about it):\n${callerContext.join('\n')}`
     : '';
 
-  // Determine greeting and system prompt (callback double-whammy vs normal)
+  // Determine greeting and system prompt (callback double-whammy vs honest fallback vs normal)
   let greeting, systemPrompt;
+  const eliseMissed = req.query.elise_missed === '1';
 
   if (outboundCallback && outboundCallback.business_name) {
     const bizName = outboundCallback.business_name;
-    greeting = `Thank you for calling ${bizName}! This is Jessica, how can I help you today?`;
 
-    // Look up scraped business data from prospect_demos for deep context
-    let bizContext = '';
-    try {
-      const normalizedPhone = phoneFrom.replace(/[^\d+]/g, '');
-      const prospectDemo = db.db.prepare(
-        'SELECT business_type, services, service_area, hours, tagline, has_emergency, location, faqs FROM prospect_demos WHERE phone = ? ORDER BY created_at DESC LIMIT 1'
-      ).get(normalizedPhone) || db.db.prepare(
-        'SELECT business_type, services, service_area, hours, tagline, has_emergency, location, faqs FROM prospect_demos WHERE business_name = ? ORDER BY created_at DESC LIMIT 1'
-      ).get(bizName);
+    if (eliseMissed) {
+      // Elise didn't answer — Jessica picks up as herself, not as their business
+      greeting = `Hey, thanks for calling back! I'm Jessica with AI Always Answer — you got a voicemail from us about never missing a call again. I can tell you more about that, or connect you with someone on our team. What would be most helpful?`;
+      console.log(`🔔 [Realtime/Fallback] Callback from ${bizName} — using honest AI Always Answer intro`);
 
-      if (prospectDemo) {
-        const parts = [];
-        if (prospectDemo.business_type) parts.push(`Business type: ${prospectDemo.business_type}`);
-        if (prospectDemo.services) parts.push(`Services they offer: ${prospectDemo.services}`);
-        if (prospectDemo.service_area) parts.push(`Service area: ${prospectDemo.service_area}`);
-        if (prospectDemo.hours) parts.push(`Hours: ${prospectDemo.hours}`);
-        if (prospectDemo.tagline) parts.push(`Their tagline: ${prospectDemo.tagline}`);
-        if (prospectDemo.has_emergency === 'true') parts.push(`They handle emergency calls`);
-        if (prospectDemo.location) parts.push(`Location: ${prospectDemo.location}`);
-        if (prospectDemo.faqs) parts.push(`Common FAQs: ${prospectDemo.faqs}`);
-        if (parts.length > 0) {
-          bizContext = `\n\nSCRAPED BUSINESS INTEL (from their website — use this to sound knowledgeable when role-playing as their receptionist):\n${parts.join('\n')}`;
-          console.log(`🔍 [Realtime] Loaded scraped context for ${bizName}: ${parts.length} data points`);
+      systemPrompt = `You are Jessica, an AI sales rep from AI Always Answer. A prospect (${bizName}) called back after receiving your voicemail — they tried to reach our human team but no one was available, so you stepped in.
+
+YOUR ROLE: Be warm, honest, and helpful. You are NOT pretending to be their receptionist — you are Jessica from AI Always Answer.
+
+YOUR GOAL: Qualify their interest, answer questions, and guide them toward signing up at $99/month.
+
+KEY FACTS:
+- AI Always Answer is $99/month — an AI phone receptionist that answers 24/7
+- 85% of callers don't leave voicemails — they call a competitor instead
+- Pays for itself with just one captured job
+- No contracts, cancel anytime
+- Checkout link: https://aialwaysanswer.com/checkout?plan=basic
+
+WHAT TO DO:
+1. Ask what business they're in and what made them curious enough to call back
+2. Get their name: "What's your name, by the way?" — always capture it, ask to repeat/spell if unclear
+3. Explain the service naturally: "Basically I answer every call for your business — 24/7, even at 2am, sound like a real person, capture leads and book appointments"
+4. If they're interested, share the checkout link or offer to have a human from our team follow up
+5. Capture their best callback number if they want a human follow-up
+
+PRICING: $99/month, no contracts. If they push back on price, remind them one missed job typically costs more than a full year of the service.
+
+STAY HONEST: You are Jessica the AI. Don't claim to be human if asked directly. Keep it light — "Yep, I'm the AI you heard about. Pretty convincing, right? Imagine your customers getting this same experience."
+
+COLLECTING THEIR INFO (critical):
+- ALWAYS get their name. If you can't hear it clearly, ask: "Sorry, could you spell that for me?"
+- Confirm their business name: "This is ${bizName}, right?"
+- Get their best callback number: "What's the best number to reach you at?"
+- Email is a bonus but not required.
+
+CLOSING: "I can send you the signup link right now — it's 99 bucks a month, takes about 5 minutes to set up. Want me to text it to you?"${callerContextStr}`;
+    } else {
+      // No Elise in the chain — do the full double-whammy demo (original behavior)
+      greeting = `Thank you for calling ${bizName}! This is Jessica, how can I help you today?`;
+
+      // Look up scraped business data from prospect_demos for deep context
+      let bizContext = '';
+      try {
+        const normalizedPhone = phoneFrom.replace(/[^\d+]/g, '');
+        const prospectDemo = db.db.prepare(
+          'SELECT business_type, services, service_area, hours, tagline, has_emergency, location, faqs FROM prospect_demos WHERE phone = ? ORDER BY created_at DESC LIMIT 1'
+        ).get(normalizedPhone) || db.db.prepare(
+          'SELECT business_type, services, service_area, hours, tagline, has_emergency, location, faqs FROM prospect_demos WHERE business_name = ? ORDER BY created_at DESC LIMIT 1'
+        ).get(bizName);
+
+        if (prospectDemo) {
+          const parts = [];
+          if (prospectDemo.business_type) parts.push(`Business type: ${prospectDemo.business_type}`);
+          if (prospectDemo.services) parts.push(`Services they offer: ${prospectDemo.services}`);
+          if (prospectDemo.service_area) parts.push(`Service area: ${prospectDemo.service_area}`);
+          if (prospectDemo.hours) parts.push(`Hours: ${prospectDemo.hours}`);
+          if (prospectDemo.tagline) parts.push(`Their tagline: ${prospectDemo.tagline}`);
+          if (prospectDemo.has_emergency === 'true') parts.push(`They handle emergency calls`);
+          if (prospectDemo.location) parts.push(`Location: ${prospectDemo.location}`);
+          if (prospectDemo.faqs) parts.push(`Common FAQs: ${prospectDemo.faqs}`);
+          if (parts.length > 0) {
+            bizContext = `\n\nSCRAPED BUSINESS INTEL (from their website — use this to sound knowledgeable when role-playing as their receptionist):\n${parts.join('\n')}`;
+            console.log(`🔍 [Realtime] Loaded scraped context for ${bizName}: ${parts.length} data points`);
+          }
         }
+      } catch (err) {
+        console.error('Prospect demo lookup error:', err.message);
       }
-    } catch (err) {
-      console.error('Prospect demo lookup error:', err.message);
-    }
 
-    systemPrompt = `You are Jessica, an AI receptionist from AI Always Answer. You left a voicemail for ${bizName} and they are calling you back.
+      systemPrompt = `You are Jessica, an AI receptionist from AI Always Answer. You left a voicemail for ${bizName} and they are calling you back.
 
 IMPORTANT — THE DOUBLE WHAMMY STRATEGY:
 You answered as "${bizName}'s" receptionist on purpose. This IS their personalized demo. You're showing them exactly what their customers would experience.
@@ -709,6 +795,7 @@ PRICING:
 - Usually pays for itself with one captured job
 
 Remember: they called YOU back, you answered as their business, AND you knew their services. They're blown away. Close it.${callerContextStr}`;
+    }
   } else {
     greeting = business.greeting;
     const basePrompt = business.systemPrompt || aiService.getSystemPrompt();
@@ -2825,9 +2912,14 @@ app.get('/my/onboarding', validateCustomerToken, (req, res) => {
         .number-display { background: #eff6ff; border: 2px solid #2563eb; border-radius: 12px; padding: 24px; text-align: center; margin: 24px 0; }
         .number-display .number { font-size: 32px; font-weight: 700; color: #2563eb; letter-spacing: 1px; }
         .number-display .label { color: #6b7280; font-size: 14px; margin-top: 4px; }
+        .copy-btn { margin-top: 12px; background: #2563eb; color: white; border: none; padding: 8px 20px; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+        .copy-btn:hover { background: #1d4ed8; }
+        .copy-btn.copied { background: #10b981; }
         .instructions { background: white; border-radius: 12px; padding: 24px; margin: 24px 0; border: 1px solid #e5e7eb; }
         .instructions h3 { margin-bottom: 12px; }
         .instructions ol { padding-left: 20px; color: #4b5563; line-height: 2; }
+        .forward-highlight { display: inline-block; background: #fef3c7; border: 1px solid #f59e0b; border-radius: 6px; padding: 2px 8px; font-family: monospace; font-size: 15px; font-weight: 700; color: #92400e; }
+        .tip-box { background: #f0fdf4; border: 1px solid #86efac; border-radius: 8px; padding: 12px 16px; margin-top: 16px; font-size: 14px; color: #14532d; }
         .test-area { background: #f0fdf4; border: 2px solid #10b981; border-radius: 12px; padding: 24px; text-align: center; margin: 24px 0; }
         .test-area p { color: #065f46; margin-bottom: 16px; }
         .error-msg { color: #dc2626; margin-top: 8px; font-size: 14px; display: none; }
@@ -2911,8 +3003,8 @@ app.get('/my/onboarding', validateCustomerToken, (req, res) => {
 
         <!-- STEP 2: Review & Confirm -->
         <div class="step" id="step-2">
-          <h2>Review & Confirm</h2>
-          <p class="desc">We're setting up your dedicated AI receptionist phone number.</p>
+          <h2>Your AI receptionist is ready! 🎉</h2>
+          <p class="desc">Here's your dedicated number. Forward your calls here and Jessica answers anything you miss.</p>
           <div id="setup-loading" style="text-align:center; padding: 40px;">
             <div class="spinner" style="width:40px; height:40px; border-width:3px; border-color:#2563eb; border-top-color:transparent;"></div>
             <p style="margin-top:16px; color:#6b7280;">Provisioning your phone number...</p>
@@ -2921,19 +3013,30 @@ app.get('/my/onboarding', validateCustomerToken, (req, res) => {
             <div class="number-display">
               <div class="label">Your AI Receptionist Number</div>
               <div class="number" id="provisioned-number"></div>
+              <button class="copy-btn" id="copy-number-btn" onclick="copyNumber()">📋 Copy Number</button>
             </div>
             <div class="instructions">
-              <h3>How to start using your AI receptionist:</h3>
+              <h3>📲 How to forward your calls here:</h3>
               <ol>
-                <li><strong>Forward your calls</strong> — Set up call forwarding on your business line to the number above</li>
-                <li><strong>On most phones:</strong> Dial *72 followed by the number, then press call</li>
-                <li><strong>Or:</strong> Contact your phone provider and ask them to set up "call forwarding on no answer" to this number</li>
-                <li><strong>That's it!</strong> Jessica will answer any calls you miss</li>
+                <li>
+                  <strong>Forward on no-answer (recommended)</strong> — Your phone rings first, then Jessica catches it if you don't pick up.<br>
+                  <span style="color:#6b7280; font-size:14px;">On most landlines/cell: dial <span class="forward-highlight">*61 + your AI number</span> then press call</span>
+                </li>
+                <li>
+                  <strong>Always forward (advanced)</strong> — Every call goes straight to Jessica.<br>
+                  <span style="color:#6b7280; font-size:14px;">Dial <span class="forward-highlight">*72 + your AI number</span> then press call</span>
+                </li>
+                <li>
+                  <strong>Phone provider option</strong> — Call your carrier and ask to set up <em>"conditional call forwarding on no answer"</em> to <span id="fwd-number-inline" style="font-weight:700; color:#2563eb;"></span>
+                </li>
               </ol>
+              <div class="tip-box">
+                💡 <strong>Tip:</strong> Most small business owners use <em>forward on no-answer</em> so they can still answer themselves first. Jessica handles the overflow.
+              </div>
             </div>
             <div class="btn-row">
               <button class="btn btn-outline" onclick="goToStep(1)">Back</button>
-              <button class="btn btn-primary" onclick="goToStep(3)">Continue</button>
+              <button class="btn btn-primary" onclick="goToStep(3)">I've Set Up Forwarding →</button>
             </div>
           </div>
           <div id="setup-error" class="error-msg"></div>
@@ -2941,24 +3044,28 @@ app.get('/my/onboarding', validateCustomerToken, (req, res) => {
 
         <!-- STEP 3: Test Call -->
         <div class="step" id="step-3">
-          <h2>Test your AI receptionist</h2>
-          <p class="desc">Give her a call and hear how she answers for your business.</p>
+          <h2>Give her a test call 📞</h2>
+          <p class="desc">Call your AI number directly and hear exactly what your customers will experience.</p>
           <div class="test-area">
-            <p>Call your new number to hear Jessica answer as <strong id="test-biz-name"></strong></p>
-            <a id="test-call-link" href="tel:" class="btn btn-success" style="font-size:18px; padding:16px 40px; text-decoration:none; display:inline-block;">Call Now</a>
+            <p>Call your number below to hear Jessica answer as <strong id="test-biz-name"></strong></p>
+            <div style="margin-bottom:12px; font-size:22px; font-weight:700; color:#065f46;" id="test-number-display"></div>
+            <a id="test-call-link" href="tel:" class="btn btn-success" style="font-size:18px; padding:16px 40px; text-decoration:none; display:inline-block;">📞 Call Now</a>
           </div>
           <div class="instructions">
-            <h3>What to try:</h3>
+            <h3>What to try on the test call:</h3>
             <ol>
-              <li>Call and ask about your services</li>
-              <li>Give a fake name and number to see lead capture</li>
+              <li>Ask about your services — Jessica should know them!</li>
+              <li>Give a fake name and number to test lead capture</li>
               <li>Ask about hours or pricing</li>
-              <li>Check your dashboard after to see the call logged</li>
+              <li>Check your <a href="/my/dashboard">dashboard</a> after to see the call logged</li>
             </ol>
+          </div>
+          <div style="background:#fffbeb; border:1px solid #fbbf24; border-radius:8px; padding:16px; margin:16px 0; font-size:14px; color:#78350f;">
+            ⚠️ <strong>Reminder:</strong> Don't forget to set up call forwarding on your business line to your new AI number (from Step 2) so real customer calls get through!
           </div>
           <div class="btn-row">
             <button class="btn btn-outline" onclick="goToStep(2)">Back</button>
-            <a href="/my/dashboard" class="btn btn-primary">Go to Dashboard</a>
+            <a href="/my/dashboard" class="btn btn-primary">Go to Dashboard →</a>
           </div>
         </div>
       </div>
@@ -2982,11 +3089,16 @@ app.get('/my/onboarding', validateCustomerToken, (req, res) => {
           if (n === 2 && provisionedNumber) {
             document.getElementById('setup-loading').style.display = 'none';
             document.getElementById('setup-result').style.display = 'block';
-            document.getElementById('provisioned-number').textContent = formatPhone(provisionedNumber);
+            const formatted = formatPhone(provisionedNumber);
+            document.getElementById('provisioned-number').textContent = formatted;
+            const inlineEl = document.getElementById('fwd-number-inline');
+            if (inlineEl) inlineEl.textContent = formatted;
           }
           if (n === 3) {
             document.getElementById('test-biz-name').textContent = bizName;
             document.getElementById('test-call-link').href = 'tel:' + provisionedNumber;
+            const numDisplay = document.getElementById('test-number-display');
+            if (numDisplay) numDisplay.textContent = formatPhone(provisionedNumber);
           }
         }
 
@@ -2994,6 +3106,34 @@ app.get('/my/onboarding', validateCustomerToken, (req, res) => {
           const d = p.replace(/\\D/g, '').replace(/^1/, '');
           if (d.length === 10) return '(' + d.slice(0,3) + ') ' + d.slice(3,6) + '-' + d.slice(6);
           return p;
+        }
+
+        function copyNumber() {
+          const formatted = formatPhone(provisionedNumber);
+          navigator.clipboard.writeText(formatted).then(() => {
+            const btn = document.getElementById('copy-number-btn');
+            btn.textContent = '✅ Copied!';
+            btn.classList.add('copied');
+            setTimeout(() => {
+              btn.textContent = '📋 Copy Number';
+              btn.classList.remove('copied');
+            }, 2000);
+          }).catch(() => {
+            // Fallback for older browsers
+            const el = document.createElement('textarea');
+            el.value = formatted;
+            document.body.appendChild(el);
+            el.select();
+            document.execCommand('copy');
+            document.body.removeChild(el);
+            const btn = document.getElementById('copy-number-btn');
+            btn.textContent = '✅ Copied!';
+            btn.classList.add('copied');
+            setTimeout(() => {
+              btn.textContent = '📋 Copy Number';
+              btn.classList.remove('copied');
+            }, 2000);
+          });
         }
 
         // Step 1 form submission
