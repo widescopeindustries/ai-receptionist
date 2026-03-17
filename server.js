@@ -150,9 +150,28 @@ app.post('/voice/incoming', async (req, res) => {
 
   // FORWARD MODE — ring a human first, fall back to Jessica if no answer
   if (process.env.FORWARD_INBOUND_TO) {
+    // Look up business name for whisper
+    let businessName = 'unknown caller';
+    try {
+      const normalizedFrom = phoneFrom?.replace(/[^\d+]/g, '');
+      const outboundMatch = db.db.prepare(
+        'SELECT business_name FROM outbound_calls WHERE phone = ? ORDER BY created_at DESC LIMIT 1'
+      ).get(normalizedFrom);
+      if (outboundMatch?.business_name) businessName = outboundMatch.business_name;
+    } catch (e) { /* best-effort */ }
+
+    const baseUrl = process.env.BASE_URL || 'https://aialwaysanswer.com';
     const twiml = new VoiceResponse();
-    const dial = twiml.dial({ timeout: 20, action: '/voice/forward-fallback', method: 'POST' });
-    dial.number(process.env.FORWARD_INBOUND_TO);
+    const dial = twiml.dial({
+      timeout: 20,
+      action: '/voice/forward-fallback',
+      method: 'POST',
+      callerId: process.env.TWILIO_PHONE_NUMBER || req.body.To
+    });
+    dial.number({
+      url: `${baseUrl}/voice/whisper?from=${encodeURIComponent(phoneFrom || '')}&biz=${encodeURIComponent(businessName)}`,
+      method: 'POST'
+    }, process.env.FORWARD_INBOUND_TO);
     res.type('text/xml');
     return res.send(twiml.toString());
   }
@@ -541,6 +560,32 @@ app.post('/voice/status', async (req, res) => {
 /**
  * POST /voice/recording — Twilio calls this when an inbound call recording is ready.
  */
+/**
+ * POST /voice/whisper — Plays a whisper message to Elise before connecting the caller.
+ * Caller hears ringing. Elise hears: "AI Always Answer callback from [Business Name]. Press any key to accept."
+ */
+app.post('/voice/whisper', (req, res) => {
+  const from = req.query.from || 'unknown';
+  const biz = req.query.biz || 'unknown caller';
+
+  // Format phone for readability
+  const digits = from.replace(/\D/g, '');
+  const readable = digits.length >= 10
+    ? `${digits.slice(-10, -7)}-${digits.slice(-7, -4)}-${digits.slice(-4)}`
+    : from;
+
+  const twiml = new VoiceResponse();
+  twiml.say(
+    { voice: 'Polly.Joanna-Neural' },
+    `A I Always Answer callback from ${biz}. Caller number: ${readable}. Press any key to accept.`
+  );
+  twiml.gather({ numDigits: 1, timeout: 10 });
+  // If no input, still connect (auto-accept after timeout)
+
+  res.type('text/xml');
+  res.send(twiml.toString());
+});
+
 /**
  * POST /voice/forward-fallback — Fires when FORWARD_INBOUND_TO call ends without answer.
  * If Elise didn't pick up, route to Jessica (openai-realtime).
