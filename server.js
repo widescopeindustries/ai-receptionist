@@ -1508,11 +1508,42 @@ app.post('/outbound/voicemail-handler', (req, res) => {
       const baseUrl = process.env.BASE_URL || 'https://aialwaysanswer.com';
       const wsUrl = baseUrl.replace(/^http/, 'ws') + '/voice/realtime-stream';
 
-      const greeting = businessName
-        ? `Oh wow, hi! This is Jessica from AI Always Answer. I'm honestly surprised someone picked up — I was calling after hours expecting to get your voicemail!`
-        : `Oh wow, hi! I'm Jessica from AI Always Answer. I was honestly expecting your voicemail!`;
+      // Time-aware greeting and pitch
+      const hour = new Date().toLocaleString('en-US', { timeZone: 'America/Chicago', hour: 'numeric', hour12: false });
+      const isAfterHours = parseInt(hour) >= 21 || parseInt(hour) < 7;
 
-      const systemPrompt = `You are Jessica, an AI sales rep from AI Always Answer. You just called ${businessName || 'a business'} as an outbound prospect and they picked up live.
+      const greeting = isAfterHours
+        ? (businessName
+          ? `Hey, this is Jessica from AI Always Answer. I am so sorry to bother you this late — I was honestly expecting to leave a voicemail. The fact that you answered right now tells me everything I need to know about how seriously you take your calls.`
+          : `Hey, this is Jessica from AI Always Answer. I'm sorry to call so late — I was honestly expecting your voicemail. The fact that you picked up right now says a lot about you.`)
+        : (businessName
+          ? `Oh wow, hi! This is Jessica from AI Always Answer. I'm honestly surprised someone picked up — I was calling expecting to get your voicemail!`
+          : `Oh wow, hi! I'm Jessica from AI Always Answer. I was honestly expecting your voicemail!`);
+
+      const systemPrompt = isAfterHours
+        ? `You are Jessica, an AI sales rep from AI Always Answer. You just called ${businessName || 'a business'} AFTER HOURS and they picked up live. It's late — be respectful of their time.
+
+PERSONALITY: Warm, apologetic for the late call, genuinely impressed they answered. You were expecting voicemail.
+
+AFTER-HOURS APPROACH — KEEP IT SHORT:
+- Acknowledge it's late and you respect their time
+- The fact they answered after hours IS your pitch — they shouldn't have to do this
+- "You clearly never miss a call. But you shouldn't have to pick up at ${new Date().toLocaleString('en-US', { timeZone: 'America/Chicago', hour: 'numeric', minute: '2-digit', hour12: true })} to prove it."
+- Plant the seed: "I'm an AI receptionist — I answer every call 24/7 so owners like you can actually rest."
+- Offer to let them go: "I'll let you get back to your night. Check out A-I-always-answer dot com when you're up tomorrow, or I can call back during business hours."
+- If they want to talk more, great — give the full pitch. But default to SHORT and respectful.
+
+GOAL: Plant the seed, be memorable, let them rest. They'll remember "that AI that told me to go to sleep" tomorrow morning.
+
+CLOSING:
+- "Go get some rest. A-I-always-answer dot com — check it out tomorrow. Goodnight!"
+- If they engage and want more info, pivot to full pitch
+- If they want a demo: ask for email, use send_setup_link tool
+
+PRICING (only if they ask):
+- $99/month for 24/7 AI receptionist
+- No contracts, cancel anytime`
+        : `You are Jessica, an AI sales rep from AI Always Answer. You just called ${businessName || 'a business'} as an outbound prospect and they picked up live.
 
 PERSONALITY: Warm, surprised, excited that someone actually answered. You were expecting voicemail.
 
@@ -1527,7 +1558,7 @@ GOAL: Build rapport, pitch the service, try to close. If they're interested, ask
 CLOSING:
 - "Want me to send you a quick demo? You'll see exactly how I'd answer calls for ${businessName || 'your business'}."
 - If yes: ask for email, use send_setup_link tool
-- If they want more info: "Check out aialwaysanswer.com or I can walk you through it right now"
+- If they want more info: "Check out A-I-always-answer dot com or I can walk you through it right now"
 - Be confident but not pushy. If they say no, gracefully wrap up: "No worries at all! If you change your mind, call us anytime at 817-533-8424."
 
 PRICING:
@@ -1549,15 +1580,27 @@ PRICING:
       stream.parameter({ name: 'callSid', value: callSid });
     } else {
       // Half-duplex — static TwiML pitch with ElevenLabs TTS
-      const livePitch = businessName
-        ? `Oh wow, hi! This is Jessica from AI Always Answer. I'm honestly surprised someone picked up, I was calling after hours expecting to get your voicemail. ` +
-          `That actually makes my point though... did you know that 85 percent of your customers won't wait for voicemail? They just hang up and call the next company. ` +
-          `I'm an AI receptionist and I can answer every call for ${businessName}, 24 7, book appointments, and capture every lead... ` +
-          `and you're not going to believe this... it's 99 bucks a month. ` +
-          `Can I send you a quick demo? You'll see exactly how I'd answer calls for your business.`
-        : `Oh wow, hi! I'm Jessica from AI Always Answer. I was honestly expecting your voicemail. ` +
-          `Did you know 85 percent of callers won't leave a voicemail? They just call your competitor instead. ` +
-          `I'm an AI receptionist, 99 bucks a month, I answer every call 24 7. Can I send you a quick demo?`;
+      const halfDuplexHour = new Date().toLocaleString('en-US', { timeZone: 'America/Chicago', hour: 'numeric', hour12: false });
+      const halfDuplexAfterHours = parseInt(halfDuplexHour) >= 21 || parseInt(halfDuplexHour) < 7;
+
+      const livePitch = halfDuplexAfterHours
+        ? (businessName
+          ? `Hey, this is Jessica from AI Always Answer. I'm so sorry to call this late, I was expecting your voicemail. ` +
+            `The fact that you answered right now? That tells me you never miss a call. But you shouldn't have to pick up at this hour to prove it. ` +
+            `I'm an AI receptionist, I answer every call 24 7, so you can actually rest. ` +
+            `Go get some sleep. Check out A I always answer dot com in the morning. Goodnight!`
+          : `Hey, this is Jessica from AI Always Answer. So sorry to call this late, I was expecting voicemail. ` +
+            `You shouldn't have to answer calls at this hour. That's literally what I do, 24 7, 99 bucks a month. ` +
+            `Check out A I always answer dot com tomorrow. Get some rest!`)
+        : (businessName
+          ? `Oh wow, hi! This is Jessica from AI Always Answer. I'm honestly surprised someone picked up, I was calling expecting to get your voicemail. ` +
+            `That actually makes my point though... did you know that 85 percent of your customers won't wait for voicemail? They just hang up and call the next company. ` +
+            `I'm an AI receptionist and I can answer every call for ${businessName}, 24 7, book appointments, and capture every lead... ` +
+            `and you're not going to believe this... it's 99 bucks a month. ` +
+            `Can I send you a quick demo? You'll see exactly how I'd answer calls for your business.`
+          : `Oh wow, hi! I'm Jessica from AI Always Answer. I was honestly expecting your voicemail. ` +
+            `Did you know 85 percent of callers won't leave a voicemail? They just call your competitor instead. ` +
+            `I'm an AI receptionist, 99 bucks a month, I answer every call 24 7. Can I send you a quick demo?`);
       speakText(twiml, livePitch);
       // Gather their response
       twiml.gather({
