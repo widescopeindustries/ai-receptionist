@@ -108,7 +108,8 @@ class StripeService {
       subscription_data: {
         metadata: {
           plan: plan
-        }
+        },
+        trial_period_days: 7
       },
       allow_promotion_codes: true
     };
