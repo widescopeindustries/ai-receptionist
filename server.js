@@ -149,7 +149,16 @@ app.post('/voice/incoming', async (req, res) => {
   }
 
   // FORWARD MODE — ring a human first, fall back to Jessica if no answer
-  if (process.env.FORWARD_INBOUND_TO) {
+  // Adaptive: only forward during business hours (7 AM – 9 PM CDT)
+  const nowCDT = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }));
+  const hourCDT = nowCDT.getHours();
+  const isBusinessHours = hourCDT >= 7 && hourCDT < 21; // 7 AM – 9 PM CDT
+
+  if (!isBusinessHours && process.env.FORWARD_INBOUND_TO) {
+    console.log(`🌙 After-hours (${hourCDT}:00 CDT) — Jessica handling solo, no forward to Elise`);
+  }
+
+  if (process.env.FORWARD_INBOUND_TO && isBusinessHours) {
     // Look up business name for whisper
     let businessName = 'unknown caller';
     try {
