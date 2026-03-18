@@ -596,13 +596,24 @@ app.post('/voice/whisper', (req, res) => {
     : from;
 
   const twiml = new VoiceResponse();
-  twiml.say(
+  // gather with action pointing to a no-op endpoint so Twilio doesn't re-POST here on keypress
+  const gather = twiml.gather({ numDigits: 1, timeout: 10, action: '/voice/whisper-accept', method: 'POST' });
+  gather.say(
     { voice: 'Polly.Joanna-Neural' },
     `A I Always Answer callback from ${biz}. Caller number: ${readable}. Press any key to accept.`
   );
-  twiml.gather({ numDigits: 1, timeout: 10 });
-  // If no input, still connect (auto-accept after timeout)
+  // If no input after timeout, still connect (Twilio bridges the call)
 
+  res.type('text/xml');
+  res.send(twiml.toString());
+});
+
+/**
+ * POST /voice/whisper-accept — No-op action for whisper gather.
+ * Returning empty TwiML here lets Twilio complete the bridge to the caller.
+ */
+app.post('/voice/whisper-accept', (req, res) => {
+  const twiml = new VoiceResponse();
   res.type('text/xml');
   res.send(twiml.toString());
 });
