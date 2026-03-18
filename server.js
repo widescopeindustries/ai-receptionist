@@ -152,7 +152,7 @@ app.post('/voice/incoming', async (req, res) => {
   // Adaptive: only forward during business hours (7 AM – 9 PM CDT)
   const nowCDT = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }));
   const hourCDT = nowCDT.getHours();
-  const isBusinessHours = hourCDT >= 7 && hourCDT < 21; // 7 AM – 9 PM CDT
+  const isBusinessHours = hourCDT >= 8 && hourCDT < 21; // 8 AM – 9 PM CDT
 
   if (!isBusinessHours && process.env.FORWARD_INBOUND_TO) {
     console.log(`🌙 After-hours (${hourCDT}:00 CDT) — Jessica handling solo, no forward to Elise`);
