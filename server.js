@@ -38,7 +38,7 @@ app.get('/sitemap.xml', (req, res) => {
 app.use((req, res, next) => {
   const origin = req.headers.origin || '';
   // Allow mission control, localhost, and aialwaysanswer.com
-  if (origin.includes('missiom-control') || origin.includes('vercel.app') || origin.includes('localhost') || origin.includes('aialwaysanswer')) {
+  if (origin.includes('missiom-control') || origin.includes('vercel.app') || origin.includes('railway.app') || origin.includes('localhost') || origin.includes('aialwaysanswer')) {
     res.header('Access-Control-Allow-Origin', origin);
     res.header('Access-Control-Allow-Methods', 'GET, POST, PATCH, OPTIONS');
     res.header('Access-Control-Allow-Headers', 'Content-Type');
